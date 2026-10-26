@@ -1,5 +1,6 @@
 {
   "name": "@shuji-bonji/s1000d-verify-mcp",
+  "mcpName": "io.github.shuji-bonji/s1000d-verify-mcp",
   "version": "0.1.0",
   "description": "MCP server that verifies S1000D® data modules: XML schema (XSD) validation with the user's own S1000D schemas, BREX (Business Rules Exchange) checks, and reference resolution, reported as one verification status. Not affiliated with ASD.",
   "keywords": ["mcp", "s1000d", "xsd", "schema-validation", "brex", "business-rules", "ietm", "ietp", "technical-publications", "xml"],
@@ -23,7 +24,8 @@
     "lint": "eslint src",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
-    "prepublishOnly": "npm run build"
+    "version": "node scripts/sync-plugin-version.mjs && git add .claude-plugin/plugin.json server.json",
+    "prepublishOnly": "node scripts/sync-plugin-version.mjs --check && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",

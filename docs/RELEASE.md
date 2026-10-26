@@ -29,7 +29,13 @@ git push --follow-tags
 
 # 5. Actions の結果を確認する
 gh run watch
+
+# 6. MCP Registry にも同じ版を載せる（npm に反映されてから。Actions が緑になった後、さらに 2〜5 分かかる）
+npm view @shuji-bonji/s1000d-verify-mcp@$(node -p "require('./package.json').version") mcpName   # 行が出るまで待つ
+mcp-publisher publish   # 初回は先に mcp-publisher login github
 ```
+
+`npm version` の version フックが `scripts/sync-plugin-version.mjs` を呼び、`.claude-plugin/plugin.json` と `server.json` の版を `package.json` に揃えてリリースコミットに含めます。`claude-plugins` の `marketplace.json` は揃わないので、公開後に claude-plugins リポジトリで `node scripts/marketplace-version-check.mjs --write` を実行してください。
 
 ## 版の上げ方の目安
 

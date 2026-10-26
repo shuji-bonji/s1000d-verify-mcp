@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1 (2026-10-27)
+
+MCP Registry と claude-plugins marketplace に載せるための版。ツールと応答は 0.1.0 から変わっていません。
+
+### 追加
+
+- `package.json` に `mcpName`（`io.github.shuji-bonji/s1000d-verify-mcp`）、リポジトリ直下に `server.json`（MCP Registry 用。npm パッケージには同梱しない）、`.claude-plugin/plugin.json`（Claude Code の plugin 定義）
+- `scripts/sync-plugin-version.mjs`: `npm version` のフックで `plugin.json` と `server.json` の版を `package.json` に揃える
+
 ## 0.1.0 (2026-10-26)
 
 最初の版。段階 2 の s1000d-verify-mcp です（ROADMAP の作業 6）。
