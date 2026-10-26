@@ -6,14 +6,23 @@ import { writeFileSync } from 'node:fs';
 import {
   collectReferences,
   defaultXmlEngine,
+  findApplicTables,
+  findUndeterminedApplicability,
   formatDmc,
   locateXsd,
   readDataModuleInfo,
+  resolveBrexChain,
   resolveReferences,
+  suggestFixes,
   verifyDataModule,
   type BrexCheckReport,
+  type BrexDocument,
+  type BrexResolver,
+  type Fix,
+  type Product,
   type Reference,
   type ReferenceReport,
+  type SuggestFixesOptions,
   type VerifyOptions,
   type VerifyResult,
 } from '@shuji-bonji/s1000d-core';
@@ -322,6 +331,122 @@ async function verifyCsdbTool(args: Args) {
   };
 }
 
+/** 1 回の呼び出しの中で同じ BREX を 2 度読まないための解決器（検証と修正提案の両方で連鎖をたどるため） */
+function memoResolver(inner: BrexResolver): BrexResolver {
+  const cache = new Map<string, Promise<BrexDocument | undefined>>();
+  return (ref) => {
+    const key = formatDmc(ref.dmCode);
+    let hit = cache.get(key);
+    if (!hit) {
+      hit = Promise.resolve(inner(ref));
+      cache.set(key, hit);
+    }
+    return hit;
+  };
+}
+
+function stringRecord(v: unknown): Record<string, string> {
+  if (!v || typeof v !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(v as Record<string, unknown>).filter(
+      (e): e is [string, string] => typeof e[1] === 'string',
+    ),
+  );
+}
+
+function isSpecificationFix(f: Fix): boolean {
+  return f.kind === 'reference' && f.source === 'modelIdentCode S1000D';
+}
+
+async function suggestFixesTool(args: Args) {
+  const path = str(args.path);
+  const xml = loadXml({ path, xml: str(args.xml) }, LIMITS.maxInlineXmlBytes);
+  const ctx: ContextOptions = { extraDirs: strArray(args.csdbDirs) };
+  const resolver = memoResolver(brexResolver(ctx));
+  const options = verifyOptions(args, ctx, path);
+  if (options.brex) options.brex = { resolver };
+  const r = await verifyDataModule(xml, options);
+  const notes = resultNotes(r, ctx);
+  if (!r.status.wellFormed) {
+    return {
+      verification: r.status,
+      fixCount: 0,
+      fixes: [],
+      _notes: [...notes, 'The document is not well-formed XML; fix the XML syntax first.'],
+    };
+  }
+  const csdb = csdbIndex(ctx);
+
+  let brexLayers: BrexDocument[] | undefined;
+  if (r.brex) {
+    brexLayers = (await resolveBrexChain(r.info?.identAndStatus?.brexDmRef, resolver)).layers;
+  }
+
+  let applicability: SuggestFixesOptions['applicability'];
+  let applicabilityInfo: Record<string, unknown> = { checked: false };
+  if (args.product && typeof args.product === 'object') {
+    const product: Product = {
+      attributes: stringRecord(args.product.attributes),
+      conditions: stringRecord(args.product.conditions),
+    };
+    const tables = findApplicTables(xml, csdb);
+    const findings = findUndeterminedApplicability(xml, product);
+    applicability = {
+      findings,
+      act: tables.act?.act,
+      cct: tables.cct?.cct,
+      pct: tables.pct?.pct,
+    };
+    applicabilityInfo = {
+      checked: true,
+      undetermined: findings.length,
+      tables: { act: tables.act?.path, cct: tables.cct?.path, pct: tables.pct?.path },
+      missingTables: tables.missing,
+    };
+  }
+
+  const all = suggestFixes(r, { xml, csdb, brexLayers, applicability });
+  const spec = all.filter(isSpecificationFix);
+  const listed =
+    args.includeSpecificationReferences === true ? all : all.filter((f) => !isSpecificationFix(f));
+  const maxFixes = int(args.maxFixes, 200, 1, 5000);
+  const maxCandidates = int(args.maxCandidates, 20, 1, 1000);
+  const fixes = listed.slice(0, maxFixes).map((f) =>
+    f.candidates.length > maxCandidates
+      ? {
+          ...f,
+          candidates: f.candidates.slice(0, maxCandidates),
+          candidateCount: f.candidates.length,
+        }
+      : f,
+  );
+  const byConfidence = { exact: 0, several: 0, none: 0 };
+  for (const f of listed) byConfidence[f.confidence]++;
+
+  if (listed.length > fixes.length)
+    notes.push(
+      `Only ${fixes.length} of ${listed.length} fixes are listed. Raise maxFixes to see more.`,
+    );
+  if (spec.length > 0 && args.includeSpecificationReferences !== true)
+    notes.push(
+      `${spec.length} dmRef(s) to the S1000D specification itself are not listed; they are not errors.`,
+    );
+  notes.push(
+    'Choose only among the candidates. When confidence is "none", ask the user. Candidates with valueForm "range" or "pattern" are constraints; ask the user for a value that satisfies them.',
+  );
+  return {
+    verification: r.status,
+    fixCount: listed.length,
+    byConfidence,
+    fixes,
+    omitted: {
+      specificationReferences: args.includeSpecificationReferences === true ? 0 : spec.length,
+    },
+    applicability: applicabilityInfo,
+    _notes: notes,
+  };
+}
+
 async function listSchemasTool() {
   const spec = specDir();
   const dirs = schemaDirs();
@@ -349,5 +474,6 @@ export const toolHandlers: Record<string, ToolHandler> = {
   validate_schema: validateSchemaTool,
   check_references: checkReferencesTool,
   verify_csdb: verifyCsdbTool,
+  suggest_fixes: suggestFixesTool,
   list_schemas: listSchemasTool,
 };

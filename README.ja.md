@@ -16,6 +16,7 @@ S1000D® のデータモジュールを LLM が「どこまで確認済みか」
 | `validate_schema` | XSD 検証だけを行います。使う XSD は `xsi:noNamespaceSchemaLocation` のファイル名で決め、`S1000D_SPEC_DIR` の下の `xml_schema_flat/` から探します。版は `brex.xsd` 冒頭の `Issue number:` から読みます |
 | `check_references` | 参照を 5 種類（`dmRef` / `pmRef` / ICN / `internalRef` / `applicRefId`）集め、参照先の有無を理由付きで返します。仕様書の章への `dmRef`（モデル識別コード `S1000D`）は参照切れではないので別枠にします |
 | `verify_csdb` | フォルダーの中の CSDB オブジェクト（既定は DMC と PMC）をまとめて検証し、1 件ごとの検証状態と件数の集計を返します。`offset` / `limit` で分けて読み、`reportPath` で詳細を JSON に書き出せます |
+| `suggest_fixes` | `verify_data_module` と同じ検証を行い、違反ごとに直し方の候補を返します。候補はサーバーが決め、出どころ（BREX のルール ID、XSD の定義、CSDB、文書内の id、ACT・CCT・PCT）と確からしさ（`exact` / `several` / `none`）を付けます。`product` を渡すと、製品の値が足りず判定できない適用性にも、与える値の候補を付けます。修正の適用はしません |
 | `list_schemas` | `S1000D_SPEC_DIR` の下で見つかった `xml_schema_flat/` の一覧（版、XSD の数、スキーマ名）を返します。`schema-not-found` の原因を調べるのに使います |
 
 ### 検証状態（`verification`）
@@ -33,7 +34,8 @@ S1000D® のデータモジュールを LLM が「どこまで確認済みか」
 > [!WARNING]
 > - **S1000D への準拠を判定しません。** `schema: valid` と `brex: passed` は「XSD と、機械で検査できる BREX のルールに誤りが無かった」ことだけを意味します。`nonContextRules`（文章で書かれた取り決め）は `manualChecks` として返し、判断は人が行います。プロジェクトのビジネスルール文書はどのツールの対象でもありません。
 > - BREX のルールの説明や値の意味は返しません。それは `s1000d-brex-mcp` の `explain_brex` / `lookup_value` の仕事です。重大度コード（`brsl01`〜`brsl99`）はそのまま返します。
-> - 適用性（どの製品に当てはまるか）は判定しません。`check_references` は `applicRefId` の参照先があるかだけを見ます。判定は `s1000d-reader-mcp` が行います。
+> - 適用性（どの製品に当てはまるか）は判定しません。`check_references` は `applicRefId` の参照先があるかだけを見ます。判定は `s1000d-reader-mcp` が行います。例外は `product` を渡した `suggest_fixes` で、製品の値が足りず判定できない適用性だけを報告します。
+> - 修正を文書に当てません。`suggest_fixes` は候補を返すだけです。LLM には候補の中から選ばせ、`confidence` が `none` のときは利用者に聞かせてください（`instructions` にも書いてあります）。
 
 > [!NOTE]
 > XSD に違反した文書では、要素の位置が仕様と違う可能性があるため、BREX の違反が誤って出たり隠れたりします。`schema.state` が `invalid` のときは BREX の結果を参考程度に読んでください（応答の `_notes` にも書きます）。

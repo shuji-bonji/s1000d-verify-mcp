@@ -2,7 +2,7 @@
  * サーバを InMemoryTransport で叩き、ツール定義とハンドラの対応、各ツールの応答の形を確かめる。
  * テストデータは自作（券売機）と、テストの中で作る小さな XSD。配布物は使わない。
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -164,6 +164,53 @@ describe('S1000D_SPEC_DIR が無いとき', () => {
     expect(paged.data._notes.join(' ')).toContain('offset=2');
   });
 
+  it('suggest_fixes は検証状態と修正提案を返す（ICN は拡張子違いのファイルを候補にする）', async () => {
+    const r = await call('suggest_fixes', { path: dm, csdbDirs: [fixtures] });
+    expect(r.isError).toBe(false);
+    expect(r.data.verification.target.schemaName).toBe('descript');
+    expect(r.data.fixCount).toBe(r.data.fixes.length);
+    const icn = r.data.fixes.find((f: { kind: string; problem: string }) =>
+      f.problem.includes('declared for'),
+    );
+    expect(icn).toMatchObject({ kind: 'reference', source: 'CsdbIndex and DOCTYPE' });
+    expect(['exact', 'several', 'none']).toContain(icn.confidence);
+    expect(r.data.byConfidence.exact + r.data.byConfidence.several + r.data.byConfidence.none).toBe(
+      r.data.fixCount,
+    );
+    expect(r.data.applicability).toEqual({ checked: false });
+    expect(r.data._notes.join(' ')).toContain('Choose only among the candidates');
+  });
+
+  it('suggest_fixes は BREX の値の違反にルールの許可値と説明文を付ける', async () => {
+    const xml = readFileSync(dm, 'utf8').replace(/countryIsoCode="JP"/, 'countryIsoCode="US"');
+    const r = await call('suggest_fixes', { xml, csdbDirs: [fixtures], skip: ['references'] });
+    // 上位の BREX（KBWORKS）の国コードのルール
+    const value = r.data.fixes.find(
+      (f: { kind: string; source: string }) =>
+        f.kind === 'brex-value' && f.source.startsWith('BREX KBWORKS-'),
+    );
+    expect(value).toBeDefined();
+    expect(value.candidates[0]).toMatchObject({ action: 'replace', value: 'JP' });
+    expect(value.candidates[0].description).not.toBe('a value allowed by the BREX rule');
+  });
+
+  it('suggest_fixes に product を渡すと、値の足りない適用性を報告する（ACT が無ければ候補なし）', async () => {
+    const xml = readFileSync(dm, 'utf8').replace(
+      /<applic>[\s\S]*?<\/applic>/,
+      '<applic><displayText><simplePara>MV-50</simplePara></displayText><assert applicPropertyIdent="model" applicPropertyType="prodattr" applicPropertyValues="MV-50"/></applic>',
+    );
+    const r = await call('suggest_fixes', {
+      xml,
+      skip: ['brex', 'references'],
+      product: { attributes: {}, conditions: {} },
+    });
+    expect(r.data.applicability.checked).toBe(true);
+    expect(r.data.applicability.undetermined).toBe(1);
+    const a = r.data.fixes.find((f: { kind: string }) => f.kind === 'applicability');
+    expect(a).toMatchObject({ confidence: 'none', candidates: [] });
+    expect(a.note).toContain('ask');
+  });
+
   it('CSDB も指定も無い verify_csdb はエラー', async () => {
     const r = await call('verify_csdb', {});
     expect(r.isError).toBe(true);
@@ -208,6 +255,14 @@ describe('S1000D_SPEC_DIR に自作の xml_schema_flat/ があるとき', () => 
     const r = await call('verify_data_module', { path: dm, skip: ['brex', 'references'] });
     expect(r.data.verification.schema.state).toBe('schema-not-found');
     expect(r.data.schema.locate.reason).toBe('xsd-not-found');
+  });
+
+  it('suggest_fixes は XSD 違反に XSD の定義から候補や注記を付ける', async () => {
+    const r = await call('suggest_fixes', { xml: noteXml('abcd'), skip: ['brex', 'references'] });
+    expect(r.data.verification.schema.state).toBe('invalid');
+    const f = r.data.fixes.find((x: { kind: string }) => x.kind === 'schema');
+    expect(f.location.line).toBe(3);
+    expect(f.problem).toContain("'abcd'");
   });
 
   it('XML 文字列が大きすぎるとエラー', async () => {

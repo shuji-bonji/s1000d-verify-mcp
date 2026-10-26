@@ -2,7 +2,7 @@
  * 利用者が入手した S1000D の配布物に対するテスト（`S1000D_SPEC_TESTS=1` のときだけ）。
  * 配布物は再配布できない（DECISIONS D-03）。場所は `S1000D_SPEC_DIR`（既定: ../../specs/s1000d/issue-7）。
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/client';
@@ -97,6 +97,33 @@ describe.skipIf(!enabled || !bikeDir)('S1000D 配布物（利用者が入手し�
     expect(r.data.references.unresolvedCount).toBeLessThan(
       r.data.references.specificationReferences.count,
     );
+  });
+
+  it('suggest_fixes: 仕様書への dmRef は既定で一覧に出さず、件数だけ返す。XSD 違反には公式 XSD の定義の候補が付く', async () => {
+    const brdoc = readdirSync(bikeDir!).find((n) => /-024A-D_.*\.XML$/i.test(n))!;
+    const r = await call('suggest_fixes', { path: join(bikeDir!, brdoc), csdbDirs: [bikeDir!] });
+    expect(r.isError).toBe(false);
+    expect(r.data.omitted.specificationReferences).toBeGreaterThan(100);
+    expect(
+      r.data.fixes.every((f: { source: string }) => f.source !== 'modelIdentCode S1000D'),
+    ).toBe(true);
+
+    const file = readdirSync(bikeDir!).find((n) => /^DMC-S1000DBIKE-.*-041A-A_.*\.XML$/i.test(n))!;
+    const xml = readFileSync(join(bikeDir!, file), 'utf8').replace(
+      /securityClassification="(\d\d)"/,
+      'securityClassification="XX"',
+    );
+    const bad = await call('suggest_fixes', {
+      xml,
+      skip: ['brex', 'references'],
+      maxCandidates: 5,
+    });
+    const sec = bad.data.fixes.find((f: { location?: { path: string } }) =>
+      f.location?.path.endsWith('@securityClassification'),
+    );
+    expect(sec.source).toMatch(/xs:simpleType name="securityClassificationAttType"/);
+    expect(sec.candidates).toHaveLength(5);
+    expect(sec.candidateCount).toBeGreaterThan(5);
   });
 
   it('statSync で配布物の場所を確かめる（説明用）', () => {

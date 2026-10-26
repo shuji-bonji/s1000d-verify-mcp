@@ -16,6 +16,7 @@ An MCP server that lets an LLM know, with evidence, how far an S1000D® data mod
 | `validate_schema` | Runs XSD validation only. The XSD to use is chosen from the file name in `xsi:noNamespaceSchemaLocation` and looked up under `xml_schema_flat/` below `S1000D_SPEC_DIR`. The issue is read from the `Issue number:` line at the top of `brex.xsd` |
 | `check_references` | Collects references of 5 kinds (`dmRef` / `pmRef` / ICN / `internalRef` / `applicRefId`) and returns whether each target exists, with a reason. A `dmRef` to a chapter of the specification (model identification code `S1000D`) is not a broken reference, so it is reported separately |
 | `verify_csdb` | Validates the CSDB objects in a folder (DMC and PMC by default) in one run, and returns the verification status of each object and a count summary. Read the results in parts with `offset` / `limit`, and write the details to JSON with `reportPath` |
+| `suggest_fixes` | Runs the same verification as `verify_data_module` and returns fix candidates for each finding. The server decides the candidates and adds their origin (BREX rule ID, XSD definition, CSDB, ids in the document, ACT/CCT/PCT) and their certainty (`exact` / `several` / `none`). If `product` is given, applicability that cannot be decided because the product lacks a value also gets candidate values. It does not apply fixes |
 | `list_schemas` | Returns the list of `xml_schema_flat/` folders found under `S1000D_SPEC_DIR` (issue, number of XSDs, schema names). Use it to investigate the cause of `schema-not-found` |
 
 ### Verification status (`verification`)
@@ -33,7 +34,8 @@ An MCP server that lets an LLM know, with evidence, how far an S1000D® data mod
 > [!WARNING]
 > - **It does not decide conformance to S1000D.** `schema: valid` and `brex: passed` mean only that no errors were found against the XSD and the BREX rules that a machine can check. `nonContextRules` (agreements written as prose) are returned as `manualChecks`, and a person makes the judgement. A project's business rules document is outside the scope of every tool.
 > - It does not return explanations of BREX rules or the meaning of values. That is the job of `explain_brex` / `lookup_value` in `s1000d-brex-mcp`. Severity level codes (`brsl01` to `brsl99`) are returned as they are.
-> - It does not evaluate applicability (which product the content applies to). `check_references` only looks at whether the target of `applicRefId` exists. The evaluation is done by `s1000d-reader-mcp`.
+> - It does not evaluate applicability (which product the content applies to). `check_references` only looks at whether the target of `applicRefId` exists. The evaluation is done by `s1000d-reader-mcp`. The exception is `suggest_fixes` with `product`, which reports only applicability that cannot be decided because the product lacks a value.
+> - It does not apply fixes to the document. `suggest_fixes` only returns candidates. Have the LLM choose among the candidates, and ask the user when `confidence` is `none` (the `instructions` say the same).
 
 > [!NOTE]
 > In a document that violates the XSD, elements may be in positions that differ from the specification, so BREX violations can be reported falsely or hidden. When `schema.state` is `invalid`, read the BREX results as a rough indication only (the response also says so in `_notes`).

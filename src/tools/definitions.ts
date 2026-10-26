@@ -150,6 +150,56 @@ export const tools: ToolDefinition[] = [
     },
   },
   {
+    name: 'suggest_fixes',
+    description:
+      'Verify one data module (same steps as verify_data_module) and return fix candidates for each finding: XSD errors (values and elements from the libxml2 message or from the XSD definitions), BREX violations (the rule\'s allowed values with their descriptions; remove / add for forbidden / missing; allowed notations), unresolved references (similar DMCs in the CSDB, the issue present in the CSDB, ICN files that differ only in the extension, similar ids) and, when "product" is given, applicability that cannot be decided because the product lacks a value (values from the ACT, CCT and PCT). Every candidate is decided by the server; each fix has a confidence (exact / several / none) and the source of its candidates. Does NOT apply any fix.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: pathParam,
+        xml: xmlParam,
+        csdbDirs: csdbDirsParam,
+        skip: skipParam,
+        product: {
+          type: 'object',
+          description:
+            'The product to evaluate applicability against. If given, applicability that is undetermined because the product lacks a value is reported with candidate values. Omit it to skip applicability.',
+          properties: {
+            attributes: {
+              type: 'object',
+              additionalProperties: { type: 'string' },
+              description: 'ACT productAttribute id → value.',
+            },
+            conditions: {
+              type: 'object',
+              additionalProperties: { type: 'string' },
+              description: 'CCT cond id → value.',
+            },
+          },
+          additionalProperties: false,
+        },
+        includeSpecificationReferences: {
+          type: 'boolean',
+          description:
+            'Also list fixes for dmRef to the S1000D specification itself (modelIdentCode "S1000D"). They are never in a CSDB, are not errors and carry no candidate (default false; the count is always returned).',
+          default: false,
+        },
+        maxFixes: {
+          type: 'number',
+          description: 'Cap on fixes returned (default 200). The total count is always reported.',
+          default: 200,
+        },
+        maxCandidates: {
+          type: 'number',
+          description:
+            'Cap on candidates per fix (default 20). A fix that was cut carries candidateCount.',
+          default: 20,
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'list_schemas',
     description:
       'Show which S1000D XML schema folders (xml_schema_flat/ containing brex.xsd) were found under S1000D_SPEC_DIR, with the issue read from brex.xsd and the schema names available. Use it to diagnose schema-not-found results.',

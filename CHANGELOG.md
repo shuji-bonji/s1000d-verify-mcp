@@ -1,5 +1,14 @@
 # Changelog
 
+## 未リリース（0.2.0 に向けて）
+
+段階 2.5 の作業 2（D-19、design/agent-platform.md「修正提案の設計」）。**`@shuji-bonji/s1000d-core` 0.3.0（`suggestFixes`）の公開を待ってから依存を上げて公開します。**
+
+### 追加
+
+- ツール `suggest_fixes`: `verify_data_module` と同じ検証を行い、core の `suggestFixes` で違反ごとの修正候補（`Fix`）を返します。応答は `verification`・`fixCount`・`byConfidence`・`fixes`・`omitted`・`applicability`。仕様書の章への `dmRef` は既定で一覧に出さず件数だけを返し（`includeSpecificationReferences` で出せる）、`maxFixes`・`maxCandidates` で量を絞れます（切った修正には `candidateCount`）。`product` を渡すと、製品の値が足りず判定できない適用性に ACT・CCT・PCT の値を候補として付けます。BREX の連鎖は 1 回の呼び出しの中で 1 度だけ読みます。
+- `instructions` に「候補の外の値を提案しない」「`confidence: none` なら利用者に聞く」「`range` / `pattern` は値ではなく制約」「`provide` は製品の入力で文書の変更ではない」「修正の適用はしない」を追加。
+
 ## 0.1.1 (2026-10-27)
 
 MCP Registry と claude-plugins marketplace に載せるための版。ツールと応答は 0.1.0 から変わっていません。
