@@ -1,8 +1,12 @@
 # Changelog
 
-## 未リリース（0.2.0 に向けて）
+## 0.2.0 (2026-10-27)
 
-段階 2.5 の作業 2（D-19、design/agent-platform.md「修正提案の設計」）。**`@shuji-bonji/s1000d-core` 0.3.0（`suggestFixes`）の公開を待ってから依存を上げて公開します。**
+段階 2.5 の作業 2（D-19、design/agent-platform.md「修正提案の設計」）。依存を `@shuji-bonji/s1000d-core` `^0.3.0` に上げました。
+
+### 変更
+
+- core 0.3.0 で BREX の NOTATION の照合が直りました。除外（`allowedNotationFlag="0"`）だけの `notationRuleList` を持つ BREX に照合すると、これまで使われているすべての NOTATION が違反になっていましたが、0.2.0 からは除外されたものだけが違反になります（Bike Samples では NOTATION の違反が 36 件 → 0 件）。`verify_data_module` と `verify_csdb` の BREX の違反の件数が変わります。
 
 ### 追加
 
