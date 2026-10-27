@@ -271,7 +271,7 @@ async function verifyCsdbTool(args: Args) {
   const t0 = performance.now();
   for (const o of page) {
     try {
-      const xml = loadXml({ path: o.path }, Number.MAX_SAFE_INTEGER);
+      const xml = index.read(o);
       const r = await verifyDataModule(xml, verifyOptions(args, ctx, o.path));
       results.push({ path: o.path, verification: r.status });
       totals.verified++;
