@@ -1,7 +1,7 @@
 {
   "name": "@shuji-bonji/s1000d-verify-mcp",
   "mcpName": "io.github.shuji-bonji/s1000d-verify-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server that verifies S1000D® data modules: XML schema (XSD) validation with the user's own S1000D schemas, BREX (Business Rules Exchange) checks, and reference resolution, reported as one verification status. Not affiliated with ASD.",
   "keywords": [
     "mcp",
