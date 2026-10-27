@@ -52,6 +52,8 @@ const noteXml = (year: string) =>
 beforeAll(async () => {
   delete process.env.S1000D_SPEC_DIR;
   delete process.env.S1000D_CSDB_DIR;
+  // 開発機の ~/.config/s1000d-stack/config.json を読まないよう、存在しない場所に向ける
+  process.env.S1000D_CONFIG = join(tmpdir(), 's1000d-no-such-config.json');
   specRoot = mkdtempSync(join(tmpdir(), 's1000d-verify-mcp-'));
   const flat = join(specRoot, 'schema package', 'xml_schema_flat');
   mkdirSync(flat, { recursive: true });
@@ -268,5 +270,37 @@ describe('S1000D_SPEC_DIR に自作の xml_schema_flat/ があるとき', () => 
   it('XML 文字列が大きすぎるとエラー', async () => {
     const r = await call('validate_schema', { xml: 'x'.repeat(5 * 1024 * 1024 + 1) });
     expect(r.isError).toBe(true);
+  });
+});
+
+describe('設定ファイル（~/.config/s1000d-stack/config.json の代わり）', () => {
+  let configPath: string;
+  beforeAll(() => {
+    configPath = join(specRoot, 'config.json');
+    writeFileSync(configPath, JSON.stringify({ specDir: specRoot, csdbDirs: [fixtures] }));
+    process.env.S1000D_CONFIG = configPath;
+    clearCaches();
+  });
+  afterAll(() => {
+    process.env.S1000D_CONFIG = join(tmpdir(), 's1000d-no-such-config.json');
+    delete process.env.S1000D_SPEC_DIR;
+    clearCaches();
+  });
+
+  it('S1000D_SPEC_DIR が無ければ設定ファイルの specDir と csdbDirs を使う', async () => {
+    delete process.env.S1000D_SPEC_DIR;
+    const r = await call('list_schemas', {});
+    expect(r.data.specDir).toBe(specRoot);
+    expect(r.data.schemaDirs).toHaveLength(1);
+    const refs = await call('check_references', { path: dm });
+    expect(refs.data.searched).toEqual([fixtures]);
+  });
+
+  it('置き換えられずに渡った ${S1000D_SPEC_DIR} は使わず、設定ファイルに戻って注記する', async () => {
+    process.env.S1000D_SPEC_DIR = '${S1000D_SPEC_DIR}';
+    clearCaches();
+    const r = await call('list_schemas', {});
+    expect(r.data.specDir).toBe(specRoot);
+    expect(r.data._notes.join(' ')).toContain('unexpanded');
   });
 });

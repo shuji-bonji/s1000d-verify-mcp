@@ -14,7 +14,14 @@ import {
   type SchemaDir,
 } from '@shuji-bonji/s1000d-core';
 import { Libxml2SchemaValidator } from '@shuji-bonji/s1000d-core/xsd-libxml2';
-import { ENV, csdbDirs, specDir } from '../config.js';
+import {
+  ENV,
+  csdbDirs,
+  specDir,
+  specDirHint,
+  stackConfig,
+  stackConfigWarnings,
+} from '../config.js';
 
 export interface ContextOptions {
   /** ツール引数で追加されたフォルダー */
@@ -89,10 +96,10 @@ export function brexResolver(options: ContextOptions = {}): BrexResolver {
 
 /** 設定が無いときに応答へ添える案内 */
 export function configNotes(options: ContextOptions = {}): string[] {
-  const notes: string[] = [];
+  const notes: string[] = [...stackConfigWarnings()];
   if (!specDir()) {
     notes.push(
-      `${ENV.specDir} is not set: XSD validation is reported as schema-not-found and the S1000D default BREX cannot be found. Set it to the folder where the S1000D distribution is extracted.`,
+      `${ENV.specDir} is not set: XSD validation is reported as schema-not-found and the S1000D default BREX cannot be found. ${specDirHint()}`,
     );
   } else if (schemaDirs().length === 0) {
     notes.push(
@@ -101,7 +108,7 @@ export function configNotes(options: ContextOptions = {}): string[] {
   }
   if (csdbSearchDirs(options).length === 0) {
     notes.push(
-      `No CSDB folders: set ${ENV.csdbDirs} or pass "csdbDirs". References to other data modules, publication modules and ICN files are reported as no-csdb.`,
+      `No CSDB folders: set ${ENV.csdbDirs}, add "csdbDirs" to ${stackConfig().configPath}, or pass "csdbDirs". References to other data modules, publication modules and ICN files are reported as no-csdb.`,
     );
   }
   return notes;

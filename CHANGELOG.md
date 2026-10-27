@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 (2026-10-27)
+
+### 追加
+
+- `S1000D_SPEC_DIR` / `S1000D_CSDB_DIR` が無いときに、設定ファイル `~/.config/s1000d-stack/config.json`（`XDG_CONFIG_HOME` に従う、`S1000D_CONFIG` で変更可）の `specDir` / `csdbDirs` を読むようにしました（core の `resolveStackConfig`）。Claude Desktop が plugin で入れたサーバーに環境変数を渡さず、plugin の `env` の `${VAR}` も置き換えないためです。置き換えられずに渡った `${VAR}` は使わず、応答の `_notes` に理由を書きます。配布物の場所が決まらないときの案内にも、設定ファイルの場所を出します。
+- `instructions` と README（英語・日本語）に設定ファイルの説明を足しました。
+
+**core 0.4.0（`resolveStackConfig`）の公開後に依存を上げてから公開します。**
+
 ## 0.2.0 (2026-10-27)
 
 段階 2.5 の作業 2（D-19、design/agent-platform.md「修正提案の設計」）。依存を `@shuji-bonji/s1000d-core` `^0.3.0` に上げました。

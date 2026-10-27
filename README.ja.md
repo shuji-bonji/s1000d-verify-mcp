@@ -49,6 +49,19 @@ S1000D® のデータモジュールを LLM が「どこまで確認済みか」
 
 ツールの引数 `csdbDirs` でフォルダーを追加することもできます。
 
+### 設定ファイル（Claude Desktop の plugin など、環境変数が渡らないとき）
+
+`S1000D_SPEC_DIR` / `S1000D_CSDB_DIR` が無いときは、設定ファイル `~/.config/s1000d-stack/config.json`（`XDG_CONFIG_HOME` があればその下、`S1000D_CONFIG` で場所を変更可）を読みます。Claude Desktop は、plugin で入れたサーバーに環境変数を渡さず、plugin の `env` に書いた `${VAR}` も置き換えません。plugin で入れたときは、こちらに書いてください。
+
+```json
+{
+  "specDir": "/path/to/s1000d/issue-7",
+  "csdbDirs": ["/path/to/your/csdb"]
+}
+```
+
+環境変数があれば、そちらが優先します。`~/` で始まるパスも使えます。設定ファイルは呼び出しのたびに読み直すので、書き換えたあとにサーバーを再起動する必要はありません。
+
 ### Claude Desktop / Claude Code の設定例
 
 ```json
