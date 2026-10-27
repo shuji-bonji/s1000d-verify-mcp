@@ -79,6 +79,25 @@ S1000D® のデータモジュールを LLM が「どこまで確認済みか」
 }
 ```
 
+### HTTP で起動する（製品への組み込み）
+
+既定は stdio です。`--http` を付けると Streamable HTTP で起動し、CSDB 製品のサーバーや Web アプリから HTTP で呼べます（段階 2.5 の組み込み基盤）。
+
+```sh
+npx -y @shuji-bonji/s1000d-verify-mcp --http                      # http://127.0.0.1:3000/mcp
+npx -y @shuji-bonji/s1000d-verify-mcp --http --port 3102 --path /verify
+```
+
+| 引数 | 既定 | 内容 |
+|---|---|---|
+| `--host` | `127.0.0.1` | 束縛するアドレス |
+| `--port` | `3000` | ポート。`0` で空いているポート |
+| `--path` | `/mcp` | MCP のエンドポイントのパス。`GET /healthz` は名前と版を返します |
+| `--allowed-host` | （下記） | `Host` ヘッダーに許すホスト名。カンマ区切りか複数回 |
+| `--allowed-origin` | （下記） | `Origin` ヘッダーに許すホスト名 |
+
+`--host` が loopback（`127.0.0.1` / `::1` / `localhost`）のときは、`Host` と `Origin` を localhost 系に限ります（DNS rebinding 対策）。それ以外のアドレスに束縛したときは検査しないので、製品側のリバースプロキシや認証の後ろに置いてください。認証・権限・マルチテナントはこのサーバーでは持ちません。環境変数と設定ファイルの扱いは stdio と同じです。
+
 ## 仕組み
 
 検証の処理はすべて共有ライブラリ [`@shuji-bonji/s1000d-core`](https://www.npmjs.com/package/@shuji-bonji/s1000d-core) にあり、このサーバーは引数の解釈と応答の形だけを持ちます。XSD 検証は `libxml2-wasm`（libxml2 の WebAssembly 版）で、XSD ごとに 1 回コンパイルして使い回すため、Issue 7 の公式サンプル 106 件を 0.5 秒以内で検証できます。BREX の照合は `s1000d-brex-mcp` と同じ関数を呼ぶので、2 つのサーバーの結果は一致します。

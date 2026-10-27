@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 (2026-10-27)
+
+### 追加
+
+- Streamable HTTP での起動（`--http`。`--host` / `--port` / `--path` / `--allowed-host` / `--allowed-origin`。段階 2.5 の作業 4、D-19）。MCP SDK v2 の `createMcpHandler` を `node:http` に載せました。`GET /healthz` は名前と版を返します。loopback に束縛したときは `Host` と `Origin` を localhost 系に限り、それ以外では検査しません。認証・権限・マルチテナントは持ちません（製品側の責務）。既定の stdio は変わりません。
+
 ## 0.4.0 (2026-10-27)
 
 ### 変更
