@@ -360,3 +360,82 @@ describe('設定ファイル（~/.config/s1000d-stack/config.json の代わり�
     expect(r.data._notes.join(' ')).toContain('unexpanded');
   });
 });
+
+describe('版（Issue）が混ざった CSDB（段階 2.5 の作業 8）', () => {
+  // Issue 4.2 の XSD は手元に無いので、自作の xml_schema_flat/ を 2 版分置いて確かめる。
+  // 4.2 側の note.xsd は year を文字列にしてあり、同じ文書でも版によって判定が変わる
+  let root: string;
+  let csdb: string;
+  const NOTE_XSD_42 = NOTE_XSD.replace('type="xs:gYear"', 'type="xs:string"');
+  const BREX_42 = BREX_XSD_STUB.replace('Issue number: 7', 'Issue number: 4.2');
+  const noteFor = (issuePath: string, year: string) =>
+    `<?xml version="1.0"?><note xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://example.test/${issuePath}/xml_schema_flat/note.xsd">\n<title>Hello</title>\n<year>${year}</year>\n</note>`;
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 's1000d-verify-mcp-mixed-'));
+    const flat7 = join(root, 'issue-7', 'xml_schema_flat');
+    const flat42 = join(root, 'issue-4-2', 'xml_schema_flat');
+    mkdirSync(flat7, { recursive: true });
+    mkdirSync(flat42, { recursive: true });
+    writeFileSync(join(flat7, 'brex.xsd'), BREX_XSD_STUB);
+    writeFileSync(join(flat7, 'common.xsd'), COMMON_XSD);
+    writeFileSync(join(flat7, 'note.xsd'), NOTE_XSD);
+    writeFileSync(join(flat42, 'brex.xsd'), BREX_42);
+    writeFileSync(join(flat42, 'common.xsd'), COMMON_XSD);
+    writeFileSync(join(flat42, 'note.xsd'), NOTE_XSD_42);
+    csdb = join(root, 'csdb');
+    mkdirSync(csdb);
+    writeFileSync(
+      join(csdb, 'DMC-MIX-A-00-00-00-00A-040A-D_001-00_EN-US.XML'),
+      noteFor('S1000D_7', 'abcd'),
+    );
+    writeFileSync(
+      join(csdb, 'DMC-MIX-A-00-00-00-00A-040A-D_002-00_EN-US.XML'),
+      noteFor('S1000D_4-2', 'abcd'),
+    );
+    writeFileSync(
+      join(csdb, 'DMC-MIX-A-00-00-00-00A-041A-D_001-00_EN-US.XML'),
+      noteFor('S1000D_5', '2026'),
+    );
+    process.env.S1000D_SPEC_DIR = root;
+    clearCaches();
+  });
+  afterAll(() => {
+    delete process.env.S1000D_SPEC_DIR;
+    clearCaches();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('list_schemas は 2 版の xml_schema_flat/ を版付きで返す', async () => {
+    const r = await call('list_schemas', {});
+    expect(r.data.schemaDirs.map((d: { issue: string }) => d.issue).sort()).toEqual(['4.2', '7']);
+  });
+
+  it('verify_csdb は DM ごとに schemaLocation の版に合う XSD を選ぶ。どの版にも合わなければ issue-mismatch', async () => {
+    const r = await call('verify_csdb', { csdbDirs: [csdb], skip: ['brex', 'references'] });
+    expect(r.isError).toBe(false);
+    expect(r.data.totals.verified).toBe(3);
+    const byPath = Object.fromEntries(
+      r.data.results.map(
+        (x: {
+          path: string;
+          verification: { target: { issue: string }; schema: { state: string; reason?: string } };
+        }) => [x.path.split('/').pop(), x.verification],
+      ),
+    );
+    const v7 = byPath['DMC-MIX-A-00-00-00-00A-040A-D_001-00_EN-US.XML'];
+    const v42 = byPath['DMC-MIX-A-00-00-00-00A-040A-D_002-00_EN-US.XML'];
+    const v5 = byPath['DMC-MIX-A-00-00-00-00A-041A-D_001-00_EN-US.XML'];
+    // 同じ本文でも、Issue 7 の XSD（gYear）では invalid、Issue 4.2 の XSD（string）では valid
+    expect(v7.target.issue).toBe('7');
+    expect(v7.schema.state).toBe('invalid');
+    expect(v42.target.issue).toBe('4.2');
+    expect(v42.schema.state).toBe('valid');
+    // Issue 5 の XSD は無い: 他の版の XSD で代用せず schema-not-found（issue-mismatch）
+    expect(v5.target.issue).toBe('5');
+    expect(v5.schema.state).toBe('schema-not-found');
+    expect(v5.schema.reason).toMatch(/^issue-mismatch/);
+    expect(r.data.totals.schemaValid).toBe(1);
+    expect(r.data.totals.schemaInvalid).toBe(1);
+    expect(r.data.totals.schemaNotFound).toBe(1);
+  });
+});

@@ -1,5 +1,11 @@
 # Changelog
 
+## 未リリース
+
+### 確認
+
+- 版（Issue）が混ざった CSDB で `verify_csdb` が DM ごとに `xsi:noNamespaceSchemaLocation` の版に合う `xml_schema_flat/` を選ぶことを、自作の XSD 2 版分（Issue 7 と 4.2 の形）でテストに固定しました（段階 2.5 の作業 8）。同じ本文でも版によって valid / invalid が変わること、どの版にも合わない DM は他の版の XSD で代用せず `schema-not-found`（理由 `issue-mismatch`）になることを確かめています。動作の変更はありません。
+
 ## 0.6.0 (2026-10-28)
 
 ### 追加
