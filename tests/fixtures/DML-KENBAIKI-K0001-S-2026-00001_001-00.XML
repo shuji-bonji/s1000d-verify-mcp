@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_7/xml_schema_flat/dml.xsd">
+  <identAndStatusSection>
+    <dmlAddress>
+      <dmlIdent>
+        <dmlCode modelIdentCode="KENBAIKI" senderIdent="K0001" dmlType="s" yearOfDataIssue="2026" seqNumber="00001"/>
+        <issueInfo issueNumber="001" inWork="00"/>
+      </dmlIdent>
+      <dmlAddressItems><issueDate year="2026" month="10" day="28"/></dmlAddressItems>
+    </dmlAddress>
+    <dmlStatus issueType="new">
+      <security securityClassification="01"/>
+      <brexDmRef><dmRef><dmRefIdent><dmCode modelIdentCode="KENBAIKI" systemDiffCode="A" systemCode="00" subSystemCode="0" subSubSystemCode="0" assyCode="00" disassyCode="00" disassyCodeVariant="A" infoCode="022" infoCodeVariant="A" itemLocationCode="D"/></dmRefIdent></dmRef></brexDmRef>
+    </dmlStatus>
+  </identAndStatusSection>
+  <dmlContent>
+    <dmlEntry dmlEntryType="n">
+      <dmRef><dmRefIdent><dmCode modelIdentCode="KENBAIKI" systemDiffCode="A" systemCode="10" subSystemCode="2" subSubSystemCode="0" assyCode="00" disassyCode="00" disassyCodeVariant="A" infoCode="040" infoCodeVariant="A" itemLocationCode="D"/><issueInfo issueNumber="002" inWork="01"/><language languageIsoCode="ja" countryIsoCode="JP"/></dmRefIdent>
+        <dmRefAddressItems><dmTitle><techName>指定席券売機</techName><infoName>説明</infoName></dmTitle></dmRefAddressItems></dmRef>
+      <responsiblePartnerCompany enterpriseCode="K0001"><enterpriseName>KB Works</enterpriseName></responsiblePartnerCompany>
+    </dmlEntry>
+    <dmlEntry dmlEntryType="c">
+      <dmRef><dmRefIdent><dmCode modelIdentCode="KENBAIKI" systemDiffCode="A" systemCode="00" subSystemCode="0" subSubSystemCode="0" assyCode="00" disassyCode="00" disassyCodeVariant="A" infoCode="022" infoCodeVariant="A" itemLocationCode="D"/><issueInfo issueNumber="002" inWork="00"/></dmRefIdent></dmRef>
+      <responsiblePartnerCompany enterpriseCode="K0001"/>
+    </dmlEntry>
+    <dmlEntry dmlEntryType="n">
+      <dmRef><dmRefIdent><dmCode modelIdentCode="KENBAIKI" systemDiffCode="A" systemCode="99" subSystemCode="0" subSubSystemCode="0" assyCode="00" disassyCode="00" disassyCodeVariant="A" infoCode="040" infoCodeVariant="A" itemLocationCode="D"/></dmRefIdent></dmRef>
+      <responsiblePartnerCompany enterpriseCode="K0001"/>
+      <remarks><simplePara>未着手</simplePara></remarks>
+    </dmlEntry>
+  </dmlContent>
+</dml>

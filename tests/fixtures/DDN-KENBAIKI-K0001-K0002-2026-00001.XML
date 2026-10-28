@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ddn xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.s1000d.org/S1000D_7/xml_schema_flat/ddn.xsd">
+  <identAndStatusSection>
+    <ddnAddress>
+      <ddnIdent><ddnCode modelIdentCode="KENBAIKI" senderIdent="K0001" receiverIdent="K0002" yearOfDataIssue="2026" seqNumber="00001"/></ddnIdent>
+      <ddnAddressItems>
+        <issueDate year="2026" month="10" day="28"/>
+        <dispatchTo><dispatchAddress><enterprise><enterpriseName>受け手</enterpriseName></enterprise></dispatchAddress></dispatchTo>
+        <dispatchFrom><dispatchAddress><enterprise><enterpriseName>KB Works</enterpriseName></enterprise></dispatchAddress></dispatchFrom>
+      </ddnAddressItems>
+    </ddnAddress>
+    <ddnStatus><security securityClassification="01"/></ddnStatus>
+  </identAndStatusSection>
+  <ddnContent>
+    <mediaIdent label="delivery-1"/>
+    <deliveryList>
+      <deliveryListItem><dispatchFileName>DMC-KENBAIKI-A-10-20-00-00A-040A-D_002-01_JA-JP.XML</dispatchFileName></deliveryListItem>
+      <deliveryListItem><dispatchFileName>DMC-KENBAIKI-A-00-00-00-00A-022A-D_002-00_JA-JP.XML</dispatchFileName></deliveryListItem>
+      <deliveryListItem><dispatchFileName>DML-KENBAIKI-K0001-S-2026-00001_001-00.XML</dispatchFileName></deliveryListItem>
+      <deliveryListItem><dispatchFileName>readme.txt</dispatchFileName></deliveryListItem>
+    </deliveryList>
+  </ddnContent>
+</ddn>

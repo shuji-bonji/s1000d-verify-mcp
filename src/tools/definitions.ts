@@ -126,7 +126,7 @@ export const tools: ToolDefinition[] = [
         },
         include: {
           type: 'array',
-          items: { type: 'string', enum: ['dm', 'pm', 'dml', 'ddn', 'imf', 'upf'] },
+          items: { type: 'string', enum: ['dm', 'dme', 'pm', 'dml', 'ddn', 'imf', 'upf'] },
           description: 'Object kinds to verify (default: dm and pm).',
         },
         skip: skipParam,
@@ -197,6 +197,40 @@ export const tools: ToolDefinition[] = [
         },
       },
       additionalProperties: false,
+    },
+  },
+  {
+    name: 'reconcile_dml',
+    description:
+      'Reconcile a data module list (DML) or a data dispatch note (DDN) with the CSDB. For each DML entry (dmRef / pmRef / infoEntityRef / dmlRef) or DDN delivery item (dispatchFileName) it reports found / issue-mismatch (the object exists but not the issue the list names; the latest issue in the CSDB is given) / not-found / not-checked (commentRef), plus the data modules and publication modules that are in the CSDB but not listed in the DML (notListed, limited to the model identification codes that appear in the DML). Pass path or xml of one DML or DDN; omit both to reconcile every DML and DDN found in the CSDB folders. The values of dmlType / dmlEntryType / issueType are returned as in the XSD enumerations, without interpretation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'File path of the DML or DDN. Omit path and xml to reconcile every DML and DDN in the CSDB.',
+        },
+        xml: {
+          type: 'string',
+          description: 'The DML or DDN as an XML string (alternative to path; max 5 MB).',
+        },
+        csdbDirs: csdbDirsParam,
+        includeFound: {
+          type: 'boolean',
+          description:
+            'Also list the entries whose state is "found" (default false: only issue-mismatch / not-found / not-checked are listed; counts always cover everything).',
+        },
+        includeNotListed: {
+          type: 'boolean',
+          description: 'Report CSDB objects that the DML does not list (default true).',
+        },
+        maxItems: {
+          type: 'integer',
+          description:
+            'Maximum entries and notListed objects to return per list (default 200, max 5000).',
+        },
+      },
     },
   },
   {

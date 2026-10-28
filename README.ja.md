@@ -17,6 +17,7 @@ S1000D® のデータモジュールを LLM が「どこまで確認済みか」
 | `check_references` | 参照を 5 種類（`dmRef` / `pmRef` / ICN / `internalRef` / `applicRefId`）集め、参照先の有無を理由付きで返します。仕様書の章への `dmRef`（モデル識別コード `S1000D`）は参照切れではないので別枠にします |
 | `verify_csdb` | フォルダーの中の CSDB オブジェクト（既定は DMC と PMC）をまとめて検証し、1 件ごとの検証状態と件数の集計を返します。`offset` / `limit` で分けて読み、`reportPath` で詳細を JSON に書き出せます |
 | `suggest_fixes` | `verify_data_module` と同じ検証を行い、違反ごとに直し方の候補を返します。候補はサーバーが決め、出どころ（BREX のルール ID、XSD の定義、CSDB、文書内の id、ACT・CCT・PCT）と確からしさ（`exact` / `several` / `none`）を付けます。`product` を渡すと、製品の値が足りず判定できない適用性にも、与える値の候補を付けます。修正の適用はしません |
+| `reconcile_dml` | データモジュールリスト（DML）か納入票（DDN）を CSDB と照合します。DML の各行（`dmRef` / `pmRef` / `infoEntityRef` / `dmlRef`）と DDN の各納入物（`dispatchFileName`）について、`found` / `issue-mismatch`（対象はあるが指定の版が無い。CSDB にある最新の版を添える）/ `not-found` / `not-checked`（`commentRef`）を返し、CSDB にあるのに DML に載っていない DM・PM（`notListed`）も返します。`path` も `xml` も省くと、CSDB にある DML・DDN をすべて照合します。`dmlType` / `dmlEntryType` / `issueType` は解釈しません |
 | `list_schemas` | `S1000D_SPEC_DIR` の下で見つかった `xml_schema_flat/` の一覧（版、XSD の数、スキーマ名）を返します。`schema-not-found` の原因を調べるのに使います |
 
 ### 検証状態（`verification`）
@@ -36,6 +37,7 @@ S1000D® のデータモジュールを LLM が「どこまで確認済みか」
 > - BREX のルールの説明や値の意味は返しません。それは `s1000d-brex-mcp` の `explain_brex` / `lookup_value` の仕事です。重大度コード（`brsl01`〜`brsl99`）はそのまま返します。
 > - 適用性（どの製品に当てはまるか）は判定しません。`check_references` は `applicRefId` の参照先があるかだけを見ます。判定は `s1000d-reader-mcp` が行います。例外は `product` を渡した `suggest_fixes` で、製品の値が足りず判定できない適用性だけを報告します。
 > - 修正を文書に当てません。`suggest_fixes` は候補を返すだけです。LLM には候補の中から選ばせ、`confidence` が `none` のときは利用者に聞かせてください（`instructions` にも書いてあります）。
+> - DML の値（`dmlType` / `dmlEntryType` / `issueType`）を解釈しません。`reconcile_dml` は識別子と版を照合するだけで、載っているオブジェクトの中身は検証しません（中身は `verify_csdb`）。
 
 > [!NOTE]
 > XSD に違反した文書では、要素の位置が仕様と違う可能性があるため、BREX の違反が誤って出たり隠れたりします。`schema.state` が `invalid` のときは BREX の結果を参考程度に読んでください（応答の `_notes` にも書きます）。

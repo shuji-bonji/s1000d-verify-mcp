@@ -11,6 +11,10 @@ import {
   formatDmc,
   locateXsd,
   readDataModuleInfo,
+  readDdn,
+  readDml,
+  reconcileDdn,
+  reconcileDml,
   resolveBrexChain,
   resolveReferences,
   suggestFixes,
@@ -23,6 +27,8 @@ import {
   type Reference,
   type ReferenceReport,
   type SuggestFixesOptions,
+  type CsdbIndex,
+  type CsdbObject,
   type VerifyOptions,
   type VerifyResult,
 } from '@shuji-bonji/s1000d-core';
@@ -469,11 +475,128 @@ async function listSchemasTool() {
   };
 }
 
+/** DML か DDN を 1 つ読んで CSDB と照合する。ルート要素で見分ける */
+function reconcileOne(
+  xml: string,
+  path: string | undefined,
+  index: CsdbIndex,
+  opts: { includeFound: boolean; includeNotListed: boolean; maxItems: number },
+): Record<string, unknown> {
+  const root = defaultXmlEngine.parse(xml).document.documentElement?.nodeName;
+  if (root === 'dml') {
+    const dml = readDml(xml);
+    if (!dml.ok) throw new Error(dml.error);
+    const r = reconcileDml(dml.value, index, { includeNotListed: opts.includeNotListed });
+    const shown = r.entries.filter((e) => opts.includeFound || e.state !== 'found');
+    return {
+      kind: 'dml',
+      path,
+      dmlCode: r.dmlCode,
+      issueInfo: dml.value.issueInfo,
+      issueDate: dml.value.issueDate,
+      issueType: dml.value.issueType,
+      securityClassification: dml.value.securityClassification,
+      brexDmRef: dml.value.brexDmRef ? formatDmc(dml.value.brexDmRef.dmCode) : undefined,
+      entryCount: r.entryCount,
+      counts: r.counts,
+      entries: shown.slice(0, opts.maxItems).map((e) => ({
+        state: e.state,
+        kind: e.entry.kind,
+        target: e.entry.target,
+        listedIssueInfo:
+          e.entry.dmRef?.issueInfo ?? e.entry.pmRef?.issueInfo ?? e.entry.dmlRef?.issueInfo,
+        language: e.entry.dmRef?.language,
+        title: e.entry.title,
+        dmlEntryType: e.entry.dmlEntryType,
+        issueType: e.entry.issueType,
+        responsiblePartnerCompany: e.entry.responsiblePartnerCompany?.enterpriseCode,
+        path: e.path,
+        foundIssueInfo: e.foundIssueInfo,
+        reason: e.reason,
+        location: e.entry.location,
+      })),
+      entriesOmitted: Math.max(0, shown.length - opts.maxItems),
+      notListedCount: r.notListed.length,
+      notListed: r.notListed.slice(0, opts.maxItems),
+    };
+  }
+  if (root === 'ddn') {
+    const ddn = readDdn(xml);
+    if (!ddn.ok) throw new Error(ddn.error);
+    const r = reconcileDdn(ddn.value, index);
+    const shown = r.items.filter((i) => opts.includeFound || i.state !== 'found');
+    return {
+      kind: 'ddn',
+      path,
+      ddnCode: r.ddnCode,
+      issueDate: ddn.value.issueDate,
+      dispatchFrom: ddn.value.dispatchFrom,
+      dispatchTo: ddn.value.dispatchTo,
+      mediaIdent: ddn.value.mediaIdent,
+      securityClassification: ddn.value.securityClassification,
+      itemCount: r.itemCount,
+      counts: r.counts,
+      items: shown.slice(0, opts.maxItems).map((i) => ({
+        state: i.state,
+        fileName: i.item.fileName,
+        listedIssueInfo: i.item.issueInfo,
+        entityControlNumber: i.item.entityControlNumber,
+        path: i.path,
+        foundIssueInfo: i.foundIssueInfo,
+        reason: i.reason,
+        location: i.item.location,
+      })),
+      itemsOmitted: Math.max(0, shown.length - opts.maxItems),
+    };
+  }
+  throw new Error(`Not a DML or DDN (root element is <${root ?? ''}>)`);
+}
+
+async function reconcileDmlTool(args: Args) {
+  const ctx: ContextOptions = { extraDirs: strArray(args.csdbDirs) };
+  const index = csdbIndex(ctx);
+  if (!index)
+    throw new Error(
+      `No CSDB folders to reconcile against. Pass "csdbDirs" or set ${ENV.csdbDirs}.`,
+    );
+  const opts = {
+    includeFound: args.includeFound === true,
+    includeNotListed: args.includeNotListed !== false,
+    maxItems: int(args.maxItems, LIMITS.defaultUnresolvedRefs, 1, 5000),
+  };
+  const lists: Array<Record<string, unknown>> = [];
+  if (str(args.path) || str(args.xml)) {
+    const xml = loadXml({ path: str(args.path), xml: str(args.xml) }, LIMITS.maxInlineXmlBytes);
+    lists.push(reconcileOne(xml, str(args.path), index, opts));
+  } else {
+    const found = index.objects.filter((o: CsdbObject) => o.kind === 'dml' || o.kind === 'ddn');
+    for (const o of found) {
+      try {
+        lists.push(reconcileOne(index.read(o), o.path, index, opts));
+      } catch (e) {
+        lists.push({
+          kind: o.kind,
+          path: o.path,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+  const notes = [
+    ...configNotes(ctx),
+    'States: found = the object (and, when the list names an issue, that issue) is in the CSDB; issue-mismatch = the object exists but not the listed issue (foundIssueInfo is the latest in the CSDB); not-found = not in the CSDB; not-checked = commentRef entries are not indexed. notListed covers DMs and PMs whose modelIdentCode appears in the DML; language is ignored. dmlType / dmlEntryType / issueType are not interpreted.',
+  ];
+  if (lists.length === 0)
+    notes.push('No DML or DDN file (DML-*.XML / DDN-*.XML) was found in the CSDB folders.');
+  return { lists, listCount: lists.length, searched: csdbSearchDirs(ctx), _notes: notes };
+}
+
 export const toolHandlers: Record<string, ToolHandler> = {
   verify_data_module: verifyDataModuleTool,
   validate_schema: validateSchemaTool,
   check_references: checkReferencesTool,
   verify_csdb: verifyCsdbTool,
   suggest_fixes: suggestFixesTool,
+  reconcile_dml: reconcileDmlTool,
   list_schemas: listSchemasTool,
 };

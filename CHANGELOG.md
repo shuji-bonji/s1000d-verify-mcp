@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0 (2026-10-28)
+
+### 追加
+
+- 7 本目のツール `reconcile_dml`（段階 2.5 の作業 5、D-19）。DML か DDN（`path` / `xml`。省くと CSDB の DML・DDN をすべて）を CSDB と照合し、行ごとに `found` / `issue-mismatch` / `not-found` / `not-checked` と、DML に載っていない DM・PM（`notListed`）を返します。既定では `found` の行を省き（`includeFound: true` で含める）、`maxItems`（既定 200）で件数を抑えます。処理は core 0.6.0 の `readDml` / `readDdn` / `reconcileDml` / `reconcileDdn`。`instructions` と README に、DML の値を解釈しないこと、中身の検証は `verify_csdb` で行うことを書きました。
+- `verify_csdb` の `include` に `dme`（拡張 DMC のデータモジュール）を足しました。
+
+### 変更
+
+- 依存を core `^0.6.0` に上げました。
+
 ## 0.5.0 (2026-10-27)
 
 ### 追加

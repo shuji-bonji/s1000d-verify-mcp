@@ -213,6 +213,62 @@ describe('S1000D_SPEC_DIR が無いとき', () => {
     expect(a.note).toContain('ask');
   });
 
+  it('reconcile_dml は DML の行を CSDB と照合し、無い行と版違いの行だけを返す', async () => {
+    const r = await call('reconcile_dml', {
+      path: join(fixtures, 'DML-KENBAIKI-K0001-S-2026-00001_001-00.XML'),
+      csdbDirs: [fixtures],
+    });
+    expect(r.isError).toBe(false);
+    expect(r.data.listCount).toBe(1);
+    const dml = r.data.lists[0];
+    expect(dml.kind).toBe('dml');
+    expect(dml.dmlCode).toBe('KENBAIKI-K0001-S-2026-00001');
+    expect(dml.issueDate).toBe('2026-10-28');
+    expect(dml.brexDmRef).toBe('KENBAIKI-A-00-00-00-00A-022A-D');
+    expect(dml.entryCount).toBe(3);
+    expect(dml.counts).toEqual({ found: 1, 'issue-mismatch': 1, 'not-found': 1, 'not-checked': 0 });
+    // 既定では found は省く
+    expect(dml.entries.map((e: { state: string }) => e.state)).toEqual([
+      'issue-mismatch',
+      'not-found',
+    ]);
+    expect(dml.entries[0].target).toBe('KENBAIKI-A-00-00-00-00A-022A-D');
+    expect(dml.entries[0].listedIssueInfo).toEqual({ issueNumber: '002', inWork: '00' });
+    expect(dml.entries[0].foundIssueInfo).toEqual({ issueNumber: '001', inWork: '00' });
+    expect(dml.entries[1].dmlEntryType).toBe('n');
+    // KBWORKS の BREX は別のモデルなので notListed に出ない
+    expect(dml.notListedCount).toBe(0);
+    const all = await call('reconcile_dml', {
+      path: join(fixtures, 'DML-KENBAIKI-K0001-S-2026-00001_001-00.XML'),
+      csdbDirs: [fixtures],
+      includeFound: true,
+    });
+    expect(all.data.lists[0].entries).toHaveLength(3);
+    expect(all.data.lists[0].entries[0].title).toBe('指定席券売機 - 説明');
+  });
+  it('reconcile_dml は DDN も受け取り、省略時は CSDB の DML・DDN をすべて照合する', async () => {
+    const ddn = await call('reconcile_dml', {
+      path: join(fixtures, 'DDN-KENBAIKI-K0001-K0002-2026-00001.XML'),
+      csdbDirs: [fixtures],
+    });
+    expect(ddn.isError).toBe(false);
+    const d = ddn.data.lists[0];
+    expect(d.kind).toBe('ddn');
+    expect(d.ddnCode).toBe('KENBAIKI-K0001-K0002-2026-00001');
+    expect(d.itemCount).toBe(4);
+    expect(d.counts).toEqual({ found: 2, 'issue-mismatch': 1, 'not-found': 1, 'not-checked': 0 });
+    expect(d.items.map((i: { state: string; fileName: string }) => [i.state, i.fileName])).toEqual([
+      ['issue-mismatch', 'DMC-KENBAIKI-A-00-00-00-00A-022A-D_002-00_JA-JP.XML'],
+      ['not-found', 'readme.txt'],
+    ]);
+    const both = await call('reconcile_dml', { csdbDirs: [fixtures] });
+    expect(both.isError).toBe(false);
+    expect(both.data.listCount).toBe(2);
+    expect(both.data.lists.map((l: { kind: string }) => l.kind).sort()).toEqual(['ddn', 'dml']);
+    const notDml = await call('reconcile_dml', { path: dm, csdbDirs: [fixtures] });
+    expect(notDml.isError).toBe(true);
+    expect(notDml.data.error).toMatch(/Not a DML or DDN/);
+  });
   it('CSDB も指定も無い verify_csdb はエラー', async () => {
     const r = await call('verify_csdb', {});
     expect(r.isError).toBe(true);
