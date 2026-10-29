@@ -10,6 +10,7 @@ import {
   CsdbIndex,
   createDirectoryBrexResolver,
   findSchemaDirs,
+  fingerprintDirs,
   type BrexResolver,
   type SchemaDir,
 } from '@shuji-bonji/s1000d-core';
@@ -71,20 +72,30 @@ export function schemaDirs(): SchemaDir[] {
   return dirs;
 }
 
-const indexCache = new Map<string, CsdbIndex>();
-/** CSDB の索引。フォルダーの組み合わせごとに 1 回だけ作る */
+/** 索引と、それを作ったときのフォルダーの指紋 */
+interface IndexEntry {
+  index: CsdbIndex;
+  fingerprint: string;
+}
+const indexCache = new Map<string, IndexEntry>();
+/**
+ * CSDB の索引。フォルダーの組み合わせごとに覚えるが、呼ぶたびに指紋（core の `fingerprintDirs`:
+ * 相対パス・大きさ・更新時刻。ファイルの中身は読まない）を取り直し、索引を作ったときと違えば作り直す。
+ * プロセスが動いている間に writer などが足した DM・PM・ICN も、次の呼び出しから見える
+ */
 export function csdbIndex(options: ContextOptions = {}): CsdbIndex | undefined {
   const dirs = csdbSearchDirs(options);
   if (dirs.length === 0) return undefined;
   const key = dirs.join('\0');
-  let index = indexCache.get(key);
-  if (!index) {
-    index = CsdbIndex.fromDirs(dirs);
-    indexCache.set(key, index);
+  const fingerprint = fingerprintDirs(dirs);
+  let entry = indexCache.get(key);
+  if (!entry || entry.fingerprint !== fingerprint) {
+    entry = { index: CsdbIndex.fromDirs(dirs), fingerprint };
+    indexCache.set(key, entry);
   }
-  return index;
+  return entry.index;
 }
-/** テスト用。フォルダーの中身が変わったときに呼ぶ */
+/** テスト用。`schemaDirCache`（配布物の XSD のフォルダー）は配布物が変わらない前提で覚え続ける */
 export function clearCaches(): void {
   indexCache.clear();
   schemaDirCache.clear();

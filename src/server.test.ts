@@ -2,7 +2,15 @@
  * サーバを InMemoryTransport で叩き、ツール定義とハンドラの対応、各ツールの応答の形を確かめる。
  * テストデータは自作（券売機）と、テストの中で作る小さな XSD。配布物は使わない。
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -437,5 +445,30 @@ describe('版（Issue）が混ざった CSDB（段階 2.5 の作業 8）', () =>
     expect(r.data.totals.schemaValid).toBe(1);
     expect(r.data.totals.schemaInvalid).toBe(1);
     expect(r.data.totals.schemaNotFound).toBe(1);
+  });
+});
+
+describe('起動後に増えたファイル', () => {
+  it('索引を作った後に DM を足すと、次の呼び出しから verify_csdb に見える', async () => {
+    delete process.env.S1000D_SPEC_DIR;
+    clearCaches();
+    const csdb = mkdtempSync(join(tmpdir(), 's1000d-verify-mcp-fresh-'));
+    try {
+      for (const f of readdirSync(fixtures)) copyFileSync(join(fixtures, f), join(csdb, f));
+      const before = await call('verify_csdb', { csdbDirs: [csdb], skip: ['brex', 'references'] });
+      expect(before.data.totals.verified).toBe(3);
+
+      // サーバーを動かしたまま、別のプロセス（writer など）が DM を書いた状況
+      const added = 'DMC-KENBAIKI-A-10-20-00-00A-040A-D_003-00_JA-JP.XML';
+      copyFileSync(dm, join(csdb, added));
+      const after = await call('verify_csdb', { csdbDirs: [csdb], skip: ['brex', 'references'] });
+      expect(after.data.totals.verified).toBe(4);
+      expect(after.data.results.map((x: { path: string }) => x.path.split('/').pop())).toContain(
+        added,
+      );
+    } finally {
+      rmSync(csdb, { recursive: true, force: true });
+      clearCaches();
+    }
   });
 });

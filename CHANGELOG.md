@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1 (2026-10-29)
+
+hub の E2E テスト（`e2e/`）で見つかった 2 点を直しました。ツールの入出力は変えていません。依存の `@shuji-bonji/s1000d-core` は `^0.8.2` です。
+
+### 修正
+
+- CSDB の索引を、フォルダーの組み合わせごとに 1 回だけ作ってプロセスが動いている間は作り直していたため、サーバーを起動した後に writer などが書いた DM が、`verify_csdb`・`check_references`・`reconcile_dml` などから見えませんでした（再起動するまで「見つからない」「数えられない」）。呼び出しのたびに、索引を作ったときのフォルダーの指紋（core の `fingerprintDirs`: ファイルの相対パス・大きさ・更新時刻。中身は読まない）と今の指紋を比べ、違えば作り直します。XSD のフォルダーの探索結果は、配布物が変わらない前提でこれまでどおり覚えます。
+- `brexDmRef` が無く BREX の層も渡されていない DM で、BREX を 1 層も照合していないのに `verification.brex.state` が `passed`（`layers: 0`）になっていました。core 0.8.2 の修正で、`not-run` と `reason`（"no brexDmRef in the document and no BREX layer was given"）になります。
+
 ## 未リリース
 
 ### 確認
