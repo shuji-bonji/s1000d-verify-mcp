@@ -32,7 +32,7 @@ import {
   type VerifyOptions,
   type VerifyResult,
 } from '@shuji-bonji/s1000d-core';
-import { ENV, LIMITS, specDir } from '../config.js';
+import { LIMITS, specDir } from '../config.js';
 import {
   brexResolver,
   brexSearchDirs,
@@ -43,7 +43,9 @@ import {
   schemaDirs,
   schemaValidator,
   type ContextOptions,
+  noCsdbError,
 } from '../services/context.js';
+import { ToolInputError } from '../errors.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Args = Record<string, any>;
@@ -252,7 +254,7 @@ async function verifyCsdbTool(args: Args) {
   const ctx: ContextOptions = { extraDirs };
   const index = csdbIndex(ctx);
   if (!index) {
-    throw new Error(`No CSDB folders to verify. Pass "csdbDirs" or set ${ENV.csdbDirs}.`);
+    throw noCsdbError(ctx, ' to verify');
   }
   const include = new Set(strArray(args.include) ?? ['dm', 'pm']);
   const objects = index.objects.filter((o) => include.has(o.kind));
@@ -485,7 +487,7 @@ function reconcileOne(
   const root = defaultXmlEngine.parse(xml).document.documentElement?.nodeName;
   if (root === 'dml') {
     const dml = readDml(xml);
-    if (!dml.ok) throw new Error(dml.error);
+    if (!dml.ok) throw new ToolInputError('input-error', path ? '/path' : '/xml', dml.error);
     const r = reconcileDml(dml.value, index, { includeNotListed: opts.includeNotListed });
     const shown = r.entries.filter((e) => opts.includeFound || e.state !== 'found');
     return {
@@ -522,7 +524,7 @@ function reconcileOne(
   }
   if (root === 'ddn') {
     const ddn = readDdn(xml);
-    if (!ddn.ok) throw new Error(ddn.error);
+    if (!ddn.ok) throw new ToolInputError('input-error', path ? '/path' : '/xml', ddn.error);
     const r = reconcileDdn(ddn.value, index);
     const shown = r.items.filter((i) => opts.includeFound || i.state !== 'found');
     return {
@@ -549,16 +551,17 @@ function reconcileOne(
       itemsOmitted: Math.max(0, shown.length - opts.maxItems),
     };
   }
-  throw new Error(`Not a DML or DDN (root element is <${root ?? ''}>)`);
+  throw new ToolInputError(
+    'input-error',
+    path ? '/path' : '/xml',
+    `Not a DML or DDN (root element is <${root ?? ''}>)`,
+  );
 }
 
 async function reconcileDmlTool(args: Args) {
   const ctx: ContextOptions = { extraDirs: strArray(args.csdbDirs) };
   const index = csdbIndex(ctx);
-  if (!index)
-    throw new Error(
-      `No CSDB folders to reconcile against. Pass "csdbDirs" or set ${ENV.csdbDirs}.`,
-    );
+  if (!index) throw noCsdbError(ctx, ' to reconcile against');
   const opts = {
     includeFound: args.includeFound === true,
     includeNotListed: args.includeNotListed !== false,

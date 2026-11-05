@@ -274,13 +274,35 @@ describe('S1000D_SPEC_DIR が無いとき', () => {
     expect(both.data.listCount).toBe(2);
     expect(both.data.lists.map((l: { kind: string }) => l.kind).sort()).toEqual(['ddn', 'dml']);
     const notDml = await call('reconcile_dml', { path: dm, csdbDirs: [fixtures] });
-    expect(notDml.isError).toBe(true);
-    expect(notDml.data.error).toMatch(/Not a DML or DDN/);
+    expect(notDml.isError).toBe(false);
+    expect(notDml.data.error).toMatchObject({ code: 'input-error', path: '/path' });
+    expect(notDml.data.error.detail).toMatch(/Not a DML or DDN/);
   });
-  it('CSDB も指定も無い verify_csdb はエラー', async () => {
+  it('CSDB も指定も無い verify_csdb は no-csdb（isError ではなく、writer と同じ形）', async () => {
     const r = await call('verify_csdb', {});
-    expect(r.isError).toBe(true);
-    expect(r.data.error).toContain('S1000D_CSDB_DIR');
+    expect(r.isError).toBe(false);
+    expect(r.data.error).toMatchObject({ code: 'no-csdb', path: '/csdbDirs' });
+    expect(r.data.error.detail).toContain('S1000D_CSDB_DIR');
+  });
+
+  it('無いファイルは file-not-found（#3）', async () => {
+    const missing = join(fixtures, 'DMC-NO-SUCH-A-00-00-00-00A-040A-D_001-00_EN-US.XML');
+    const r = await call('verify_data_module', { path: missing });
+    expect(r.isError).toBe(false);
+    expect(r.data.error).toEqual({
+      code: 'file-not-found',
+      path: '/path',
+      detail: `File not found: ${missing}`,
+    });
+    const none = await call('validate_schema', {});
+    expect(none.data.error).toMatchObject({ code: 'input-error', path: '/path' });
+  });
+
+  it('存在しない csdbDirs だけを渡すと no-csdb になり、詳細にそのフォルダーを書く（#4）', async () => {
+    const nowhere = join(tmpdir(), 's1000d-verify-mcp-no-such-csdb');
+    const r = await call('verify_csdb', { csdbDirs: [nowhere] });
+    expect(r.data.error.code).toBe('no-csdb');
+    expect(r.data.error.detail).toContain(nowhere);
   });
 });
 
@@ -331,9 +353,10 @@ describe('S1000D_SPEC_DIR に自作の xml_schema_flat/ があるとき', () => 
     expect(f.problem).toContain("'abcd'");
   });
 
-  it('XML 文字列が大きすぎるとエラー', async () => {
+  it('XML 文字列が大きすぎると input-error', async () => {
     const r = await call('validate_schema', { xml: 'x'.repeat(5 * 1024 * 1024 + 1) });
-    expect(r.isError).toBe(true);
+    expect(r.isError).toBe(false);
+    expect(r.data.error).toMatchObject({ code: 'input-error', path: '/xml' });
   });
 });
 
@@ -358,6 +381,21 @@ describe('設定ファイル（~/.config/s1000d-stack/config.json の代わり�
     expect(r.data.schemaDirs).toHaveLength(1);
     const refs = await call('check_references', { path: dm });
     expect(refs.data.searched).toEqual([fixtures]);
+  });
+
+  it('csdbDirs を渡すと設定ファイルの csdbDirs は使わず、存在しないフォルダーは _notes で知らせる（#4）', async () => {
+    delete process.env.S1000D_SPEC_DIR;
+    clearCaches();
+    const other = mkdtempSync(join(tmpdir(), 's1000d-verify-mcp-other-'));
+    const nowhere = join(tmpdir(), 's1000d-verify-mcp-no-such-csdb');
+    const refs = await call('check_references', { path: dm, csdbDirs: [other, nowhere] });
+    expect(refs.data.searched).toEqual([other]);
+    const notes = refs.data._notes.join(' ');
+    expect(notes).toContain(nowhere);
+    expect(notes).toContain('the csdbDirs argument');
+    const csdb = await call('verify_csdb', { csdbDirs: [other] });
+    expect(csdb.data.searched ?? [other]).not.toContain(fixtures);
+    expect(csdb.data.page.total).toBe(0);
   });
 
   it('置き換えられずに渡った ${S1000D_SPEC_DIR} は使わず、設定ファイルに戻って注記する', async () => {

@@ -5,6 +5,7 @@ import { McpServer, fromJsonSchema } from '@modelcontextprotocol/server';
 import { ENV, PACKAGE_INFO } from './config.js';
 import { tools } from './tools/definitions.js';
 import { toolHandlers } from './tools/handlers.js';
+import { ToolInputError } from './errors.js';
 
 /**
  * `initialize` の応答としてクライアントへ返す説明。README やツール説明より早く読まれる。
@@ -24,7 +25,9 @@ It does NOT do the following:
 - It does not evaluate applicability (which product a passage applies to); check_references only verifies that applicRefId targets exist. Use s1000d-reader-mcp for applicability. The only exception is suggest_fixes with "product": it reports applicability that cannot be decided because the product lacks a value, with candidate values.
 - It does not apply fixes. suggest_fixes only returns candidates.
 - It does not interpret DML values: dmlType, dmlEntryType and issueType are returned as the XSD enumerations. reconcile_dml compares identifiers and issues only; it does not check the content of the listed objects (use verify_csdb for that).
-- It does not ship any S1000D specification, XSD or default BREX. The user must download the distribution from s1000d.org and set ${ENV.specDir} to the extracted folder (the XSDs are found in its xml_schema_flat/ folder; the issue is read from brex.xsd). Instead of the environment variable, {"specDir": "/absolute/path"} can be written to ~/.config/s1000d-stack/config.json (for hosts that do not pass environment variables to plugins). Project data modules are found via ${ENV.csdbDirs}, "csdbDirs" in that config file, or the "csdbDirs" argument.
+- It does not ship any S1000D specification, XSD or default BREX. The user must download the distribution from s1000d.org and set ${ENV.specDir} to the extracted folder (the XSDs are found in its xml_schema_flat/ folder; the issue is read from brex.xsd). Instead of the environment variable, {"specDir": "/absolute/path"} can be written to ~/.config/s1000d-stack/config.json (for hosts that do not pass environment variables to plugins). Project data modules are found via ${ENV.csdbDirs}, "csdbDirs" in that config file, or the "csdbDirs" argument. When the "csdbDirs" argument is given, it replaces the other two (it is not added to them); folders that do not exist are skipped and listed in _notes.
+
+An input the server cannot use comes back as {"error": {"code": "...", "path": "/path", "detail": "..."}} (not as a tool failure), in the same shape as s1000d-writer-mcp. code is "file-not-found" (the file at that argument does not exist), "no-csdb" (no CSDB folder exists; pass "csdbDirs") or "input-error" (the argument is malformed or missing). path names the argument to fix. Fix it and call again.
 
 Reading results: "schema-not-found" is not "valid" — the schema step did not run; call list_schemas to see what was found. brex "incomplete" means a BREX in the chain was missing or a rule could not be evaluated; treat it as not checked. references.specificationReferences lists dmRef to the S1000D specification itself (modelIdentCode "S1000D"); they are never in a CSDB and are not errors. An XSD-invalid document can produce misleading BREX findings.
 
@@ -51,6 +54,11 @@ export function buildServer(): McpServer {
           const result = await handler(args as Record<string, unknown>);
           return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
         } catch (error) {
+          // 呼び出し側が直せる、想定内の失敗は isError にせず、writer と同じ形で返す
+          if (error instanceof ToolInputError) {
+            const body = { error: { code: error.code, path: error.path, detail: error.detail } };
+            return { content: [{ type: 'text' as const, text: JSON.stringify(body, null, 2) }] };
+          }
           const message = error instanceof Error ? error.message : String(error);
           return {
             content: [{ type: 'text' as const, text: JSON.stringify({ error: message }, null, 2) }],

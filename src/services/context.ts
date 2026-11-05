@@ -15,6 +15,7 @@ import {
   type SchemaDir,
 } from '@shuji-bonji/s1000d-core';
 import { Libxml2SchemaValidator } from '@shuji-bonji/s1000d-core/xsd-libxml2';
+import { ToolInputError } from '../errors.js';
 import {
   ENV,
   csdbDirs,
@@ -33,9 +34,41 @@ function existingDirs(dirs: string[]): string[] {
   return [...new Set(dirs.filter((d) => existsSync(d) && statSync(d).isDirectory()))];
 }
 
-/** CSDB として探すフォルダー（優先順: ツール引数 → S1000D_CSDB_DIR） */
+/**
+ * 指定されたフォルダーの並び。ツール引数の `csdbDirs` を渡したときはそれだけを使い、
+ * 設定（S1000D_CSDB_DIR・設定ファイルの csdbDirs）は使わない。渡さないときは設定を使う
+ */
+function requestedCsdbDirs(options: ContextOptions): string[] {
+  return options.extraDirs !== undefined && options.extraDirs.length > 0
+    ? options.extraDirs
+    : csdbDirs();
+}
+
+/** CSDB として探すフォルダー（ツール引数の csdbDirs があればそれだけ。無ければ S1000D_CSDB_DIR・設定ファイル） */
 export function csdbSearchDirs(options: ContextOptions = {}): string[] {
-  return existingDirs([...(options.extraDirs ?? []), ...csdbDirs()]);
+  return existingDirs(requestedCsdbDirs(options));
+}
+
+/** 指定されたのに、存在しない（またはフォルダーでない）ために使わなかったもの */
+export function missingCsdbDirs(options: ContextOptions = {}): string[] {
+  return [
+    ...new Set(
+      requestedCsdbDirs(options).filter((d) => !(existsSync(d) && statSync(d).isDirectory())),
+    ),
+  ];
+}
+
+/** 使わなかったフォルダーの注記（無ければ空） */
+export function missingCsdbDirsNotes(options: ContextOptions = {}): string[] {
+  const missing = missingCsdbDirs(options);
+  if (missing.length === 0) return [];
+  const from =
+    options.extraDirs !== undefined && options.extraDirs.length > 0
+      ? 'the csdbDirs argument'
+      : `${ENV.csdbDirs} / the config file`;
+  return [
+    `These CSDB folders from ${from} do not exist or are not folders, and were not searched: ${missing.join(', ')}`,
+  ];
 }
 
 /** BREX を探すフォルダー（CSDB ＋ 配布物） */
@@ -107,7 +140,7 @@ export function brexResolver(options: ContextOptions = {}): BrexResolver {
 
 /** 設定が無いときに応答へ添える案内 */
 export function configNotes(options: ContextOptions = {}): string[] {
-  const notes: string[] = [...stackConfigWarnings()];
+  const notes: string[] = [...stackConfigWarnings(), ...missingCsdbDirsNotes(options)];
   if (!specDir()) {
     notes.push(
       `${ENV.specDir} is not set: XSD validation is reported as schema-not-found and the S1000D default BREX cannot be found. ${specDirHint()}`,
@@ -125,16 +158,38 @@ export function configNotes(options: ContextOptions = {}): string[] {
   return notes;
 }
 
-/** データモジュールの入力（パスか XML 文字列）を XML 文字列にする */
-export function loadXml(input: { path?: string; xml?: string }, maxBytes: number): string {
+/** CSDB のフォルダーが 1 つも無いときの誤り。使わなかったフォルダーがあれば詳細に書く */
+export function noCsdbError(options: ContextOptions = {}, purpose = ''): ToolInputError {
+  const missing = missingCsdbDirs(options);
+  return new ToolInputError(
+    'no-csdb',
+    '/csdbDirs',
+    `No CSDB folders${purpose}. Pass "csdbDirs" or set ${ENV.csdbDirs}.` +
+      (missing.length > 0
+        ? ` These folders do not exist or are not folders: ${missing.join(', ')}`
+        : ''),
+  );
+}
+
+/** データモジュールの入力（パスか XML 文字列）を XML 文字列にする。`pathArg` は誤りのときに返す引数の名前 */
+export function loadXml(
+  input: { path?: string; xml?: string },
+  maxBytes: number,
+  pathArg = 'path',
+): string {
   if (input.xml !== undefined && input.xml.trim() !== '') {
     if (Buffer.byteLength(input.xml, 'utf8') > maxBytes)
-      throw new Error(`Inline XML exceeds ${maxBytes} bytes`);
+      throw new ToolInputError('input-error', '/xml', `Inline XML exceeds ${maxBytes} bytes`);
     return input.xml;
   }
   if (input.path !== undefined && input.path.trim() !== '') {
-    if (!existsSync(input.path)) throw new Error(`File not found: ${input.path}`);
+    if (!existsSync(input.path))
+      throw new ToolInputError('file-not-found', `/${pathArg}`, `File not found: ${input.path}`);
     return readFileSync(input.path, 'utf8');
   }
-  throw new Error('Either "path" or "xml" is required');
+  throw new ToolInputError(
+    'input-error',
+    `/${pathArg}`,
+    `Either "${pathArg}" or "xml" is required`,
+  );
 }

@@ -49,7 +49,23 @@ S1000D® のデータモジュールを LLM が「どこまで確認済みか」
 | `S1000D_SPEC_DIR` | 利用者が入手した S1000D の配布物を展開したフォルダー。XSD（`xml_schema_flat/`。内側の「XML Schema Package」の zip を展開しておく）と既定 BREX（`DMC-S1000D-*-04-10-0301-00A-022A-D_*.XML`）をこの下から探します。データ辞書の中にある XSD の写しは使いません（import が絶対 URL で、オフラインでは解決できないため） |
 | `S1000D_CSDB_DIR` | プロジェクトのデータモジュールが置かれたフォルダー。`:`（Windows は `;`）区切りで複数指定できます。参照先の DM・PM・ICN ファイルと、連鎖の途中の BREX をここから探します |
 
-ツールの引数 `csdbDirs` でフォルダーを追加することもできます。
+ツールの引数 `csdbDirs` でフォルダーを指定することもできます。引数で渡したときは、そのフォルダーだけを使い、`S1000D_CSDB_DIR` と設定ファイルの `csdbDirs` は使いません（足し合わせません）。存在しないフォルダーは使わず、応答の `_notes` に書きます。1 つも残らないときは、下の `no-csdb` を返します。
+
+### 誤りの返し方
+
+呼び出し側が引数を直せば済む誤りは、ツールの失敗（`isError`）にせず、s1000d-writer-mcp と同じ形で返します。
+
+```json
+{ "error": { "code": "file-not-found", "path": "/path", "detail": "File not found: /path/to/DMC-….XML" } }
+```
+
+| `code` | 起きること |
+|---|---|
+| `file-not-found` | 引数のパスにファイルが無い |
+| `no-csdb` | CSDB のフォルダーが 1 つも無い（`csdbDirs` を渡すか、`S1000D_CSDB_DIR` を設定する） |
+| `input-error` | 引数の形が違う、または必要な引数が無い |
+
+`path` は直す引数の場所（`/path`、`/csdbDirs` など）です。ファイルのパスではありません。
 
 ### 設定ファイル（Claude Desktop の plugin など、環境変数が渡らないとき）
 

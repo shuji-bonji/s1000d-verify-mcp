@@ -18,7 +18,7 @@ const csdbDirsParam = {
   type: 'array',
   items: { type: 'string' },
   description:
-    'Extra CSDB folders to search for referenced data modules, publication modules, ICN files and BREX (in addition to S1000D_CSDB_DIR; BREX also under S1000D_SPEC_DIR).',
+    'CSDB folders to search for referenced data modules, publication modules, ICN files and BREX (default: S1000D_CSDB_DIR / the config file; BREX is also searched under S1000D_SPEC_DIR). When given, these folders replace S1000D_CSDB_DIR and the csdbDirs of the config file (they are not added to them); folders that do not exist are skipped and reported in _notes.',
 } as const;
 const skipParam = {
   type: 'array',
@@ -122,7 +122,7 @@ export const tools: ToolDefinition[] = [
           type: 'array',
           items: { type: 'string' },
           description:
-            'Folders to verify (default: S1000D_CSDB_DIR). Referenced objects are also searched here.',
+            'Folders to verify (default: S1000D_CSDB_DIR / the config file). Referenced objects are also searched here. When given, these folders replace S1000D_CSDB_DIR and the csdbDirs of the config file (they are not added to them); folders that do not exist are skipped and reported in _notes.',
         },
         include: {
           type: 'array',

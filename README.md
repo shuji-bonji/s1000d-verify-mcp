@@ -49,7 +49,23 @@ An MCP server that lets an LLM know, with evidence, how far an S1000D® data mod
 | `S1000D_SPEC_DIR` | The folder where you extracted the S1000D distribution you obtained. The XSDs (`xml_schema_flat/`; extract the inner "XML Schema Package" zip beforehand) and the default BREX (`DMC-S1000D-*-04-10-0301-00A-022A-D_*.XML`) are looked up below this folder. The copies of the XSDs inside the data dictionary are not used (their imports are absolute URLs and cannot be resolved offline) |
 | `S1000D_CSDB_DIR` | The folder that holds the project's data modules. Several folders can be given, separated by `:` (`;` on Windows). The referenced DM, PM and ICN files and the BREX in the middle of the chain are looked up here |
 
-Folders can also be added with the tool argument `csdbDirs`.
+Folders can also be given with the tool argument `csdbDirs`. When the argument is given, only those folders are used; `S1000D_CSDB_DIR` and `csdbDirs` in the config file are not used (they are not added together). Folders that do not exist are skipped and listed in `_notes` of the response. When none is left, the tool returns `no-csdb` (below).
+
+### Errors
+
+An error that the caller can fix by changing an argument is not returned as a tool failure (`isError`) but in the same shape as s1000d-writer-mcp.
+
+```json
+{ "error": { "code": "file-not-found", "path": "/path", "detail": "File not found: /path/to/DMC-….XML" } }
+```
+
+| `code` | Meaning |
+|---|---|
+| `file-not-found` | There is no file at the path given in the argument |
+| `no-csdb` | No CSDB folder exists (pass `csdbDirs` or set `S1000D_CSDB_DIR`) |
+| `input-error` | An argument is malformed, or a required argument is missing |
+
+`path` names the argument to fix (`/path`, `/csdbDirs` and so on), not a file path.
 
 ### Config file (when environment variables are not passed, as with plugins in Claude Desktop)
 
