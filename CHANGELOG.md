@@ -1,5 +1,9 @@
 # Changelog
 
+## 未リリース
+
+依存の `@shuji-bonji/s1000d-core` を `^0.9.0` に上げました。core 0.9.0 の変更は、本文の読み取りと下書きの組み立てです。このサーバーのテストは、0.9.0 でそのまま通ります。
+
 ## 0.7.0 (2026-11-06)
 
 Grok Build の試用（hub の `eval/hosts/grok-build/reports/2026-11/FINDINGS.md` の F-01・F-02・F-03）で見つかった点を直しました（[#2](https://github.com/shuji-bonji/s1000d-verify-mcp/issues/2)・[#3](https://github.com/shuji-bonji/s1000d-verify-mcp/issues/3)・[#4](https://github.com/shuji-bonji/s1000d-verify-mcp/issues/4)）。依存の `@shuji-bonji/s1000d-core` は `^0.8.2` のままです。
