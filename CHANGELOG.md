@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1 (2026-11-17)
+
+依存の `@shuji-bonji/s1000d-core` を `^0.13.0` に上げました。core 0.13.0 の変更は、既にあるデータモジュールの構造を変える編集（`editContent`）の追加です。このサーバーの動きは変わりません。
+
 ## 0.8.0 (2026-11-17)
 
 依存の `@shuji-bonji/s1000d-core` を `^0.12.0` に上げました。このサーバーのコードは変えていませんが、core が BREX の違反に返す修正候補を変えたので、`suggest_fixes` の応答が次のように変わります。`verify_data_module`・`verify_csdb`・`check_references`・`reconcile_dml` の応答は変わりません。
