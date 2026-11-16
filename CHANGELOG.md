@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0 (2026-11-17)
+
+依存の `@shuji-bonji/s1000d-core` を `^0.12.0` に上げました。このサーバーのコードは変えていませんが、core が BREX の違反に返す修正候補を変えたので、`suggest_fixes` の応答が次のように変わります。`verify_data_module`・`verify_csdb`・`check_references`・`reconcile_dml` の応答は変わりません。
+
+### 変更（応答が変わります）
+
+- **条件付きで禁止する BREX ルールの候補が、「この要素を取り除く」ではなくなります。** objectPath に述語がある禁止ルールでは、条件を成り立たなくする変更（属性の値を変える `replace`、要素を足す `add`）を候補にします。候補の `target` は、違反の場所から見た道です（例: `identAndStatusSection/dmStatus/@issueType`）。確からしさは `several` か `none` で、決められなければ候補なしです。述語の無い objectPath は、これまでどおり「取り除く」を `exact` で返します。
+- **属性が無いことが条件の BREX ルールに、候補か注記を返します。** 属性が無い場所が 1 か所で、足す値の出どころ（XSD が列挙している値、`applicRefId` のときの文書の中の `applic` の `id`）があるときは、`add` の候補を `several` で返します。場所が複数のとき、値の出どころが無いときは候補なしのままで、`note` に場所の数と最初の 3 つの道、使える値を書きます。
+
+詳しくは s1000d-core の CHANGELOG の 0.12.0 にあります。
+
 ## 0.7.2 (2026-11-06)
 
 依存の `@shuji-bonji/s1000d-core` を `^0.11.0` に上げました。core 0.11.0 の変更は本文の読み取りです。このサーバーの動きは変わりません。
