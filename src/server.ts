@@ -2,7 +2,7 @@
  * s1000d-verify-mcp の組み立て。index.ts は起動だけを担い、テストからはこの関数を直接叩く。
  */
 import { McpServer, fromJsonSchema } from '@modelcontextprotocol/server';
-import { ENV, PACKAGE_INFO } from './config.js';
+import { ENV, PACKAGE_INFO, SERVER_INFO } from './config.js';
 import { tools } from './tools/definitions.js';
 import { toolHandlers } from './tools/handlers.js';
 import { ToolInputError } from './errors.js';
@@ -33,7 +33,21 @@ Reading results: "schema-not-found" is not "valid" — the schema step did not r
 
 Fix suggestions (suggest_fixes): every candidate is decided by the server from the BREX rule, the XSD definition, the CSDB, the ids in the document or the ACT/CCT/PCT; "source" says which. Do NOT propose a value that is not among the candidates. When "confidence" is "none", or when the candidates do not fit the user's intent, ask the user instead of inventing a value. A candidate with valueForm "range" or "pattern" is a constraint, not a value: ask the user for a value that satisfies it. action "provide" means a value for the product used to evaluate applicability, not a change to the document. suggest_fixes does not apply fixes and does not decide conformance; verify again after the document has been changed.
 
-Costly options: verify_csdb runs all steps on every object; use "skip" and "limit" for large CSDBs, and "reportPath" to keep the details out of the response.`;
+Costly options: verify_csdb runs all steps on every object; use "skip" and "limit" for large CSDBs, and "reportPath" to keep the details out of the response.
+
+Every response ends with "_server": {"name", "version", "core"}: the package name and version of the server that answered, and the version of @shuji-bonji/s1000d-core it has loaded. They describe the running process, not what is installed on disk. If they differ from the versions you expect (for example, a version published after the host was started), the host is still running an older process and must be restarted.`;
+
+/**
+ * 応答の本文を JSON の文字列にする。最後の項目に、答えたサーバーの名前と版、読み込んだ core の版を足す（D-38）。
+ * 成功・想定内の失敗・想定外の失敗のすべての応答がここを通る。
+ */
+function responseText(body: unknown): string {
+  const obj =
+    body && typeof body === 'object' && !Array.isArray(body)
+      ? (body as Record<string, unknown>)
+      : { result: body };
+  return JSON.stringify({ ...obj, _server: SERVER_INFO }, null, 2);
+}
 
 export function buildServer(): McpServer {
   const server = new McpServer(
@@ -52,16 +66,16 @@ export function buildServer(): McpServer {
       async (args) => {
         try {
           const result = await handler(args as Record<string, unknown>);
-          return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+          return { content: [{ type: 'text' as const, text: responseText(result) }] };
         } catch (error) {
           // 呼び出し側が直せる、想定内の失敗は isError にせず、writer と同じ形で返す
           if (error instanceof ToolInputError) {
             const body = { error: { code: error.code, path: error.path, detail: error.detail } };
-            return { content: [{ type: 'text' as const, text: JSON.stringify(body, null, 2) }] };
+            return { content: [{ type: 'text' as const, text: responseText(body) }] };
           }
           const message = error instanceof Error ? error.message : String(error);
           return {
-            content: [{ type: 'text' as const, text: JSON.stringify({ error: message }, null, 2) }],
+            content: [{ type: 'text' as const, text: responseText({ error: message }) }],
             isError: true,
           };
         }
