@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0 (2026-11-24)
+
+Grok Build の試用で見つかった、参照の件数の食い違いを直しました。依存の `@shuji-bonji/s1000d-core` を `^0.16.0` に上げました（`VerificationStatus.references.specificationReferences` を返す版です）。
+
+### 変更（応答が変わります）
+
+- **仕様書（モデル識別コード `S1000D`）への `dmRef` は、どの「unresolved」にも数えません。** これまでは、`check_references` の `references.unresolvedCount` は 0 なのに、同じ応答の `counts.dmRef.unresolved` と、`suggest_fixes`・`verify_data_module` の `verification.references.unresolvedCount` は仕様書への参照を数えていました。今後は `counts.dmRef.unresolved` も `verification.references` も仕様書への参照を除いて数え、未解決が仕様書への参照だけの DM は `verification.references.state` が `resolved` になります（件数は `verification.references.specificationReferences`）。`verify_csdb` の `totals.referencesUnresolved` にも、そうした DM は数えません。
+- サーバーの instructions の「Reading results」に、この数え方を書き足しました。
+
 ## 0.8.1 (2026-11-17)
 
 依存の `@shuji-bonji/s1000d-core` を `^0.13.0` に上げました。core 0.13.0 の変更は、既にあるデータモジュールの構造を変える編集（`editContent`）の追加です。このサーバーの動きは変わりません。

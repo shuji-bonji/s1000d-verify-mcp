@@ -116,9 +116,14 @@ function trimReferences(
     context: u.reference.context,
     location: u.reference.location,
   });
+  // counts の unresolved も、unresolvedCount と同じく仕様書への dmRef を含めない（verification.references と揃える）
+  const counts = {
+    ...report.counts,
+    dmRef: { ...report.counts.dmRef, unresolved: report.counts.dmRef.unresolved - spec.length },
+  };
   return {
     checked: report.checked,
-    counts: report.counts,
+    counts,
     unresolvedCount: others.length,
     unresolved: others.slice(0, max).map(describe),
     /** 仕様書（モデル識別コード S1000D）への dmRef。CSDB には無いので別枠 */

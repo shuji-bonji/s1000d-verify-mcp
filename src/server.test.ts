@@ -162,6 +162,43 @@ describe('S1000D_SPEC_DIR が無いとき', () => {
     expect(some.data.searched).toEqual([fixtures]);
   });
 
+  it('仕様書への dmRef は、要約・詳細・counts のどの unresolved にも数えない', async () => {
+    // 仕様書（モデル識別コード S1000D）の章を指す dmRef を 1 件足す。ほかの未解決は ICN の 1 件
+    const xml = readFileSync(dm, 'utf8').replace(
+      '<para>初期画面には',
+      '<para>仕様書 <dmRef><dmRefIdent><dmCode modelIdentCode="S1000D" systemDiffCode="A" systemCode="00" subSystemCode="6" subSubSystemCode="0" assyCode="0000" disassyCode="00" disassyCodeVariant="B" infoCode="024" infoCodeVariant="B" itemLocationCode="D"/></dmRefIdent></dmRef>。</para><para>初期画面には',
+    );
+    const refs = await call('check_references', { xml, csdbDirs: [fixtures] });
+    expect(refs.data.references.unresolvedCount).toBe(1);
+    expect(refs.data.references.counts.dmRef.unresolved).toBe(0);
+    expect(refs.data.references.specificationReferences.count).toBe(1);
+
+    const fixes = await call('suggest_fixes', {
+      xml,
+      csdbDirs: [fixtures],
+      skip: ['schema', 'brex'],
+    });
+    expect(fixes.data.verification.references).toMatchObject({
+      state: 'unresolved',
+      unresolvedCount: 1,
+      specificationReferences: 1,
+    });
+    expect(fixes.data.omitted.specificationReferences).toBe(1);
+
+    // ICN の宣言も外すと、残りは仕様書への参照だけなので resolved
+    const onlySpec = xml.replace(/<graphic [^>]*\/>/g, '');
+    const v = await call('verify_data_module', {
+      xml: onlySpec,
+      csdbDirs: [fixtures],
+      skip: ['schema', 'brex'],
+    });
+    expect(v.data.verification.references).toMatchObject({
+      state: 'resolved',
+      unresolvedCount: 0,
+      specificationReferences: 1,
+    });
+  });
+
   it('verify_csdb はフィクスチャの 3 件を検証し集計する', async () => {
     const r = await call('verify_csdb', { csdbDirs: [fixtures] });
     expect(r.isError).toBe(false);
