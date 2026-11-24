@@ -291,6 +291,26 @@ describe('S1000D_SPEC_DIR が無いとき', () => {
     expect(all.data.lists[0].entries).toHaveLength(3);
     expect(all.data.lists[0].entries[0].title).toBe('指定席券売機 - 説明');
   });
+  it('reconcile_dml の notListed の行には、そのファイルの版（issueInfo）が付く（Grok Build の所見 F-11）', async () => {
+    // DML に載っていない DM を 1 つ持つフォルダーを、CSDB に足す
+    const extra = mkdtempSync(join(tmpdir(), 'verify-notlisted-'));
+    try {
+      copyFileSync(
+        join(fixtures, 'DMC-KENBAIKI-A-10-20-00-00A-040A-D_002-01_JA-JP.XML'),
+        join(extra, 'DMC-KENBAIKI-A-10-20-00-00A-520A-A_003-02_JA-JP.XML'),
+      );
+      const r = await call('reconcile_dml', {
+        path: join(fixtures, 'DML-KENBAIKI-K0001-S-2026-00001_001-00.XML'),
+        csdbDirs: [fixtures, extra],
+      });
+      const dml = r.data.lists[0];
+      expect(dml.notListedCount).toBe(1);
+      expect(dml.notListed[0].fileName).toBe('DMC-KENBAIKI-A-10-20-00-00A-520A-A_003-02_JA-JP.XML');
+      expect(dml.notListed[0].issueInfo).toEqual({ issueNumber: '003', inWork: '02' });
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+    }
+  });
   it('reconcile_dml は DDN も受け取り、省略時は CSDB の DML・DDN をすべて照合する', async () => {
     const ddn = await call('reconcile_dml', {
       path: join(fixtures, 'DDN-KENBAIKI-K0001-K0002-2026-00001.XML'),

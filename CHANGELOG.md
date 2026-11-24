@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.0 (2026-11-24)
+
+依存の `@shuji-bonji/s1000d-core` を `^0.18.0` に上げました。Grok Build の試用（2026-11-05）の所見 F-11 への対応です（hub の `eval/hosts/grok-build/reports/2026-11/FINDINGS.md`）。
+
+### 追加
+
+- **`reconcile_dml` の `notListed` の行に、そのファイルの版（`issueInfo`）が付きます。** これまでは `kind`・`path`・`fileName`・`target` だけで、版はファイル名から読むしかありませんでした。値は core 0.18.0 が CSDB の索引から返します。これまでの項目は変わりません。
+- `reconcile_dml` の説明に、`notListed` の行が `issueInfo` を持つことを書きました。
+
+### テスト
+
+- 自作の CSDB で、`notListed` の行の `issueInfo` がファイルの版と同じであることを確かめるテストを足しました。
+
 ## 0.10.0 (2026-11-24)
 
 ### 追加
